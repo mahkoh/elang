@@ -1,0 +1,7 @@
+[
+    1 == 1,
+    "abc" == "abc",
+    null == null,
+    1 == null,
+    "abc" == null,
+]

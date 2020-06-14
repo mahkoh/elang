@@ -1,0 +1,31 @@
+let
+    a = 1,
+    b = a + a,
+    c = a - a,
+    d = a * a,
+    e = a / a,
+    f = a % a,
+    g = true,
+    h = g && g,
+    i = g || g,
+    j = a > a,
+    k = a >= a,
+    l = a < a,
+    m = a <= a,
+    n = a == a,
+    o = a != a,
+    p = g -> !g,
+    q = "\{a}" ++ "\{a}",
+    r = (x: x + a) 1,
+    s = if a == 1 then 2 else 3,
+    t = {
+        inherit a,
+        b = a,
+    }.b,
+    u = rec {
+        inherit a,
+        b = a + a + a,
+        c = b,
+    }.c,
+in
+    [b, c, d, e, f, h, i, j, k, l, m, n, o, p, q, r, s, t, u]

@@ -1,0 +1,5 @@
+.*
+!.gitignore
+/cvg
+/target
+Cargo.lock

@@ -1,0 +1,5 @@
+let
+    a = true,
+    b = false,
+in
+    a -> b

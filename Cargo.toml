@@ -1,0 +1,11 @@
+[package]
+name = "elang"
+version = "0.1.0"
+authors = ["Julian Orth <ju.orth@gmail.com>"]
+edition = "2018"
+
+[dev-dependencies]
+bstr = "0.2.13"
+atty = "0.2.14"
+serde_json = "1.0.55"
+console = { version = "0.10", default-features = false }

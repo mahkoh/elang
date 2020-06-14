@@ -1,0 +1,5 @@
+let
+    f = i: i * i
+           ^ERROR
+in
+    f (f (f (f (f (f 2)))))
