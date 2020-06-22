@@ -131,14 +131,7 @@ impl<'a> Parser<'a> {
 
                     stack.next_op(op);
                     let expr = stack.pop_expr();
-                    let path = match self.parse_attr_path() {
-                        Ok(path) => path,
-                        Err(e) => {
-                            return Err(
-                                e.add_context(ErrorContext::ParseTest(next.span.lo))
-                            )
-                        }
-                    };
+                    let path = self.parse_attr_path().ctx(ErrorContext::ParseTest(next.span.lo))?;
                     let span = Span::new(expr.span.lo, path.span.hi);
                     let expr = self.spanned(span, Value::Test(expr.val, path.val));
                     stack.push_expr(expr);
