@@ -5,7 +5,7 @@ pub use crate::{
     lexer::Lexer,
     parser::Parser,
     types::{
-        diagnostic::{Error, MsgDetails, MsgLevel},
+        diagnostic::{Error},
         result::Result,
         span::Span,
         store::{Store, StrId},
@@ -13,6 +13,7 @@ pub use crate::{
     },
 };
 use std::{convert::TryInto, rc::Rc};
+pub use crate::types::diagnostic::{ErrorType, ErrorContext, TokenAlternative};
 
 mod eval;
 mod funcs;
@@ -42,7 +43,7 @@ impl Elang {
     /// in a `\n`. Returns an error if `lo + src.len() > u32::max_value() - 1`.
     pub fn parse(&self, lo: u32, src: &[u8]) -> Result<ExprId> {
         if src.last().copied() != Some(b'\n') {
-            return self.err(MsgDetails::MissingNewline);
+            return self.err(ErrorType::MissingNewline);
         }
         let overflow = src
             .len()
@@ -58,19 +59,18 @@ impl Elang {
             })
             .is_none();
         if overflow {
-            return self.err(MsgDetails::SpanOverflow);
+            return self.err(ErrorType::SpanOverflow);
         }
         let lexer = Lexer::new(lo, src, self.store.clone());
         let mut parser = Parser::new(lexer, self.store.clone());
         parser.parse()
     }
 
-    fn err<T>(&self, details: MsgDetails) -> Result<T> {
+    fn err<T>(&self, details: ErrorType) -> Result<T> {
         return Err(Error {
             span: Span::built_in(),
-            level: MsgLevel::Error,
-            details,
-            children: vec![],
+            error: details,
+            context: vec![]
         });
     }
 

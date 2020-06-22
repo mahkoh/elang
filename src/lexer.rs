@@ -1,7 +1,7 @@
 use crate::{
     types::{
         diagnostic::{
-            MsgDetails, MsgLevel, ParserError, ParserErrorContext, ParserErrorType,
+            Error, ErrorContext, ErrorType,
             TokenAlternative,
         },
         num::{HexU32, Parsable},
@@ -10,10 +10,9 @@ use crate::{
         store::{Store, StrId},
         token::{SToken, Token, TokenType},
     },
-    Error,
 };
 use std::collections::VecDeque;
-use crate::parser::ParserResultUtil;
+use crate::types::result::ResultUtil;
 
 pub struct CharStream<'a> {
     src: &'a [u8],
@@ -87,7 +86,7 @@ macro_rules! next_t {
             t @ Spanned { val: $pat, .. } => Ok(t),
             t => $slf.error(
                 t.span,
-                ParserErrorType::UnexpectedToken(TokenAlternative::List(&[$ty], t.ty())),
+                ErrorType::UnexpectedToken(TokenAlternative::List(&[$ty]), t.ty()),
             ),
         }
     };
@@ -138,7 +137,7 @@ impl<'a> Lexer<'a> {
 
     fn unexpected_eof<T>(&self) -> Result<T> {
         let lo = self.lo + self.chars.src.len() as u32 - 1;
-        self.error(Span::new(lo, lo + 1), ParserErrorType::UnexpectedEndOfInput)
+        self.error(Span::new(lo, lo + 1), ErrorType::UnexpectedEndOfInput)
     }
 
     pub fn peek(&mut self, n: usize) -> Result<SToken> {
@@ -166,7 +165,7 @@ impl<'a> Lexer<'a> {
             Token::Ident(id) => Ok((t, id)),
             _ => self.error(
                 t.span,
-                ParserErrorType::UnexpectedToken(
+                ErrorType::UnexpectedToken(
                     TokenAlternative::List(&[TokenType::Ident]),
                     t.ty(),
                 ),
@@ -370,13 +369,13 @@ impl<'a> Lexer<'a> {
                 if let b'0'..=b'9' = next {
                     return self.error(
                         Span::new(self.lo + cur_pos, self.lo + next_pos),
-                        ParserErrorType::OutOfBoundsLiteral,
+                        ErrorType::OutOfBoundsLiteral,
                     );
                 }
                 if is_ident_cont!(next) {
                     return self.error(
                         Span::new(self.lo + next_pos, self.lo + next_pos + 1),
-                        ParserErrorType::UnexpectedIntegerSuffix(next),
+                        ErrorType::UnexpectedIntegerSuffix(next),
                     );
                 }
             }
@@ -416,7 +415,7 @@ impl<'a> Lexer<'a> {
 
         self.error(
             Span::new(self.lo + cur_pos, self.lo + cur_pos + 1),
-            ParserErrorType::UnexpectedByte(cur),
+            ErrorType::UnexpectedByte(cur),
         )
     }
 
@@ -460,7 +459,7 @@ impl<'a> Lexer<'a> {
                 b'n' => res.push(b'\n'),
                 b't' => res.push(b'\t'),
                 b'u' => {
-                    let ctx = ParserErrorContext::UnicodeEscape(esc_pos);
+                    let ctx = ErrorContext::ParseUnicodeEscape(esc_pos);
                     let chr = self.unicode_escape().ctx(ctx)?;
                     let mut bytes = [0; 4];
                     res.extend_from_slice(chr.encode_utf8(&mut bytes).as_bytes())
@@ -473,7 +472,7 @@ impl<'a> Lexer<'a> {
                 _ => {
                     return self.error(
                         Span::new(self.lo + esc_pos, self.pos()),
-                        ParserErrorType::UnknownEscapeSequence(cur),
+                        ErrorType::UnknownEscapeSequence(cur),
                     );
                 }
             }
@@ -493,7 +492,7 @@ impl<'a> Lexer<'a> {
         if len == 0 {
             return self.error(
                 Span::new(self.pos(), self.pos() + 1),
-                ParserErrorType::MissingCodePoint,
+                ErrorType::MissingCodePoint,
             );
         }
         self.chars.skip(len);
@@ -504,17 +503,17 @@ impl<'a> Lexer<'a> {
             _ => {
                 return self.error(
                     Span::new(before, after),
-                    ParserErrorType::InvalidCodePoint(val.0),
+                    ErrorType::InvalidCodePoint(val.0),
                 );
             }
         }
     }
 
-    fn error<T>(&self, span: Span, error: ParserErrorType) -> Result<T> {
-        Err(Error::ParserError(ParserError {
+    fn error<T>(&self, span: Span, error: ErrorType) -> Result<T> {
+        Err(Error {
             span,
             error,
             context: vec![],
-        }))
+        })
     }
 }

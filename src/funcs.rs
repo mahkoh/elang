@@ -2,12 +2,11 @@
 
 use crate::{
     types::{
-        diagnostic::MsgDetails,
         span::Span,
         store::Store,
         tree::{BuiltInFn, Expr, FnType, Value},
     },
-    Elang, Error, MsgLevel,
+    Elang, Error,
 };
 use std::rc::Rc;
 
@@ -29,25 +28,25 @@ pub fn to_list(eval: Rc<Elang>) -> Rc<dyn BuiltInFn> {
     Rc::new(f)
 }
 
-pub fn assert(eval: Rc<Elang>) -> Rc<dyn BuiltInFn> {
-    let f = move |cond: Rc<Expr>| {
-        let eval = eval.clone();
-        let f = move |tail: Rc<Expr>| {
-            if eval.get_bool(cond.id)? {
-                Ok(Value::Resolved(None, tail.id))
-            } else {
-                Err(Error {
-                    span: cond.span,
-                    level: MsgLevel::Error,
-                    details: MsgDetails::AssertionFailed,
-                    children: vec![],
-                })
-            }
-        };
-        Ok(bi!(f))
-    };
-    Rc::new(f)
-}
+// pub fn assert(eval: Rc<Elang>) -> Rc<dyn BuiltInFn> {
+//     let f = move |cond: Rc<Expr>| {
+//         let eval = eval.clone();
+//         let f = move |tail: Rc<Expr>| {
+//             if eval.get_bool(cond.id)? {
+//                 Ok(Value::Resolved(None, tail.id))
+//             } else {
+//                 Err(Error {
+//                     span: cond.span,
+//                     level: MsgLevel::Error,
+//                     details: MsgDetails::AssertionFailed,
+//                     children: vec![],
+//                 })
+//             }
+//         };
+//         Ok(bi!(f))
+//     };
+//     Rc::new(f)
+// }
 
 // pub fn contains(eval: Rc<Elang>) -> Rc<dyn BuiltInFn> {
 //     let f = move |list: Rc<Expr>| {

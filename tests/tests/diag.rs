@@ -1,14 +1,10 @@
 use bstr::ByteSlice;
 use console::{style, Color};
-use elang::{
-    util::codemap::{Codemap, LineIter},
-    Elang, Error, MsgDetails, MsgLevel, Span,
-};
+use elang::{util::codemap::{Codemap, LineIter}, Elang, Error, Span, ErrorType, TokenAlternative};
 use std::{
     cell::RefCell,
-    fmt,
-    fmt::{Display, Formatter},
     rc::Rc,
+    fmt::Write,
 };
 
 #[derive(Clone)]
@@ -27,23 +23,13 @@ impl TestDiag {
         }
     }
 
-    fn common<F>(&self, span: Span, color: Color, prefix: &str, f: F)
-    where
-        F: Fn(&mut Formatter) -> fmt::Result,
-    {
-        struct Cb<F: Fn(&mut Formatter) -> fmt::Result>(F);
-        impl<F: Fn(&mut Formatter) -> fmt::Result> Display for Cb<F> {
-            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-                self.0(f)
-            }
-        }
-
+    fn common(&self, span: Span, color: Color, prefix: &str, f: &str) {
         macro_rules! w { ($($tt:tt)*) => { eprint!($($tt)*) } }
         macro_rules! wl { ($($tt:tt)*) => { eprintln!($($tt)*) } }
 
         if span == Span::built_in() {
             w!("<built in> ");
-            w!("{}{}", style(prefix).bold().fg(color), style(Cb(f)).bold());
+            w!("{}{}", style(prefix).bold().fg(color), style(f).bold());
             wl!("");
             return;
         }
@@ -59,7 +45,7 @@ impl TestDiag {
             LineIter::last(&lines),
             lines.last_idx() + 1,
             style(prefix).bold().fg(color),
-            style(Cb(f)).bold(),
+            style(f).bold(),
         );
         let len = lines.len();
         for (_, src) in &mut lines {
@@ -79,97 +65,52 @@ impl TestDiag {
     }
 }
 
-pub enum Tmsg {
-    Std(Error),
-    Custom(Span, MsgLevel, String),
-}
-
-impl From<Error> for Tmsg {
-    fn from(msg: Error) -> Self {
-        Tmsg::Std(msg)
-    }
-}
-
 impl TestDiag {
-    pub fn handle(&self, msg: Tmsg) {
-        let get_color = |l| match l {
-            MsgLevel::Notice => (Color::Cyan, "notice: "),
-            MsgLevel::Error => (Color::Red, "error: "),
+    pub fn handle(&self, msg: &Error) {
+        let text = match msg.error {
+            ErrorType::UnexpectedEndOfInput => format!("unexpected end of input"),
+            ErrorType::UnexpectedToken(exp, act) => {
+                match exp {
+                    TokenAlternative::EndOfInput => format!("unexpected token. expected end of input, got `{}`", act.as_str()),
+                    TokenAlternative::StartOfExpression => format!("unexpected token. expected start of expression, got `{}`", act.as_str()),
+                    TokenAlternative::List(l) => {
+                        let mut s = format!("unexpected token. expected ");
+                        match l {
+                            &[t] => { write!(s, "`{}`", t.as_str()); },
+                            &[t1, t2] => { write!(s, "`{}` or `{}`", t1.as_str(), t2.as_str()); },
+                            _ => {
+                                for t in &l[..l.len() - 1] {
+                                    write!(&mut s, "`{}`, ", t.as_str());
+                                }
+                                write!(&mut s, " or `{}`", l.last().unwrap().as_str());
+                            }
+                        }
+                        write!(s, ", got `{}`", act.as_str());
+                        s
+                    }
+                }
+            }
+            ErrorType::OutOfBoundsLiteral => format!(""),
+            ErrorType::OutOfBoundsSelector(_) => format!(""),
+            ErrorType::UnexpectedIntegerSuffix(_) => format!(""),
+            ErrorType::UnexpectedByte(_) => format!(""),
+            ErrorType::MissingCodePoint => format!(""),
+            ErrorType::InvalidCodePoint(_) => format!(""),
+            ErrorType::UnknownEscapeSequence(_) => format!(""),
+            ErrorType::DuplicateIdentifier(_, _) => format!(""),
+            ErrorType::UnexpectedExpr(_, _) => format!(""),
+            ErrorType::MissingSetField(_) => format!(""),
+            ErrorType::MissingListField(_) => format!(""),
+            ErrorType::InfiniteRecursion(_) => format!(""),
+            ErrorType::CannotForceExpr(_) => format!(""),
+            ErrorType::DivideByZero => format!(""),
+            ErrorType::ExtraArgument(_) => format!(""),
+            ErrorType::MissingArgument(_) => format!(""),
+            ErrorType::MissingNewline => format!(""),
+            ErrorType::SpanOverflow => format!(""),
+            ErrorType::Overflow => format!(""),
+            _ => format!(""),
         };
-        let msg = match msg {
-            Tmsg::Std(m) => m,
-            Tmsg::Custom(span, level, m) => {
-                let (color, prefix) = get_color(level);
-                self.common(span, color, prefix, |w| write!(w, "{}", m));
-                return;
-            }
-        };
-        let (color, prefix) = get_color(msg.level);
-        macro_rules! err {
-            ($f:expr) => {
-                self.common(msg.span, color, prefix, $f)
-            };
-        }
-        match msg.details {
-            MsgDetails::DivideByZero => {
-                err!(|w| { write!(w, "attempted to divide by zero") })
-            }
-            MsgDetails::FoundExpr(ex, found) => err!(|w| {
-                write!(
-                    w,
-                    "expected {}, found {:?}",
-                    ex,
-                    found.value().borrow().debug(&self.e)
-                )
-            }),
-            MsgDetails::FoundToken(ex, found) => {
-                err!(|w| { write!(w, "expected {}, found {:?}", ex, found.val) })
-            }
-            MsgDetails::FoundString(ex, found) => {
-                err!(|w| { write!(w, "expected {}, found {}", ex, found) })
-            }
-            MsgDetails::FoundChar(ex, found) => {
-                err!(|w| { write!(w, "expected {}, found {:?}", ex, found) })
-            }
-            MsgDetails::CannotStringify(ex) => err!(|w| {
-                write!(
-                    w,
-                    "cannot stringify this expression: {:?}",
-                    ex.value().borrow().debug(&self.e)
-                )
-            }),
-            MsgDetails::InfiniteRecursion => err!(|w| write!(w, "infinite recursion")),
-            MsgDetails::OutOfBounds => err!(|w| write!(w, "out of bounds")),
-            MsgDetails::OverflowingLiteral => err!(|w| write!(w, "overflowing literal")),
-            MsgDetails::InvalidCodepoint => err!(|w| write!(w, "invalid codepoint")),
-            MsgDetails::UnknownEscapeSequence(c) => {
-                err!(|w| write!(w, "unknown escape sequence: {:?}", c))
-            }
-            MsgDetails::SetHasNoField(id) => err!(|w| write!(
-                w,
-                "set has no field `{}`",
-                self.e.get_interned(id).as_bstr()
-            )),
-            MsgDetails::ListHasNoField(id) => {
-                err!(|w| write!(w, "list has no field `{}`", id))
-            }
-            MsgDetails::FnPattern(_) => {
-                err!(|w| write!(w, "argument does not match function pattern"))
-            }
-            MsgDetails::FnMissingField(id) => err!(|w| write!(
-                w,
-                "missing field: `{}`",
-                self.e.get_interned(id).as_bstr()
-            )),
-            MsgDetails::DupSetField(span) => {
-                err!(|w| write!(w, "duplicate set field"));
-                self.common(span, Color::Cyan, "note: ", |w| {
-                    write!(w, "previous declaration")
-                });
-            }
-            MsgDetails::AssertionFailed => err!(|w| write!(w, "assertion failed")),
-            MsgDetails::Overflow => err!(|w| write!(w, "overflow")),
-            _ => err!(|w| write!(w, "unexpected error")),
-        }
+        self.common(msg.span, Color::Red, "error: ", &text);
     }
 }

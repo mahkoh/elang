@@ -1,14 +1,13 @@
-use crate::{
-    eval::Eval,
-    types::{
-        diagnostic::MsgDetails,
-        result::Result,
-        scope::Scope,
-        span::Span,
-        tree::{Expr, ExprId, FnArg, FnType, Selector, Value},
-    },
-};
+use crate::{eval::Eval, types::{
+    result::Result,
+    scope::Scope,
+    span::Span,
+    tree::{Expr, ExprId, FnArg, FnType, Selector, Value},
+}, Error};
 use std::rc::Rc;
+use crate::types::diagnostic::{ErrorType, ErrorContext};
+use crate::types::result::ResultUtil;
+use crate::types::tree::ValueType;
 
 impl Eval {
     /// Forces (evaluates) the expression.
@@ -49,12 +48,17 @@ impl Eval {
     /// ```elang
     /// rec { a = b, b = a, c = 0 }.c
     /// ```
-    pub fn force(&mut self, expr: ExprId) -> Result {
-        let expr = self.store.get_expr(expr);
+    pub fn force(&mut self, eid: ExprId) -> Result {
+        let expr = self.store.get_expr(eid);
         if expr.val.try_borrow_mut().is_err() {
-            return self.error(expr.span, MsgDetails::InfiniteRecursion);
+            let context = self.force_trace.iter().copied().map(ErrorContext::EvalResolved).rev().collect();
+            return Err(Error {
+                span: expr.span,
+                error: ErrorType::InfiniteRecursion(eid),
+                context,
+            });
         }
-        self.force_trace.push(expr.span);
+        self.force_trace.push(eid);
         let res = self.force_(expr);
         self.force_trace.pop();
         res
@@ -118,7 +122,7 @@ impl Eval {
             }
             Value::Let(..) | Value::Set(_, true) => {
                 drop(borrow);
-                self.force_bind(&expr, &mut Scope::new(), false)?;
+                self.force_bind(&expr, &mut Scope::new(), false);
                 self.force(expr.id)
             }
             Value::Cond(..) => {
@@ -130,80 +134,105 @@ impl Eval {
                 self.force_stringify(&expr)
             }
             Value::Path(..) | Value::Selector(..) => {
-                self.error(expr.span, MsgDetails::CannotForceExpression(expr.clone()))
+                self.error(expr.id, ErrorType::CannotForceExpr(borrow.ty()))
             }
         }
     }
 
     fn force_int(&mut self, expr: &Expr) -> Result {
-        let mut val = expr.val.borrow_mut();
+        let ctx = ErrorContext::EvalArithmetic(expr.id);
 
         macro_rules! c {
             ($v:expr) => {
                 match $v {
-                    Some(v) => Ok(v),
+                    Some(v) => v,
                     _ => {
-                        return self.error(expr.span, MsgDetails::Overflow);
+                        return self.error(expr.id, ErrorType::Overflow);
                     }
                 }
             };
         }
 
-        let new = match *val {
+        let int = |slf: &mut Self, v| {
+            match slf.get_int(v) {
+                Ok(v) => Ok(v),
+                Err(mut e) => {
+                    e.context.push(ctx);
+                    Err(e)
+                }
+            }
+        };
+
+        let new = match *expr.val.borrow() {
             Value::Add(l, r) => {
-                Value::Integer(c!(self.get_int(l)?.checked_add(self.get_int(r)?))?)
+                Value::Integer(c!(int(self, l)?.checked_add(int(self, r)?)))
             }
             Value::Sub(l, r) => {
-                Value::Integer(c!(self.get_int(l)?.checked_sub(self.get_int(r)?))?)
+                Value::Integer(c!(int(self, l)?.checked_sub(int(self, r)?)))
             }
             Value::Mul(l, r) => {
-                Value::Integer(c!(self.get_int(l)?.checked_mul(self.get_int(r)?))?)
+                Value::Integer(c!(int(self, l)?.checked_mul(int(self, r)?)))
             }
             Value::Div(l, r) => {
-                let l = self.get_int(l)?;
-                let rn = self.get_int(r)?;
+                let l = int(self, l)?;
+                let rn = int(self, r)?;
                 if rn == 0 {
-                    return self.error(self.span(r), MsgDetails::DivideByZero);
+                    return self.error(r, ErrorType::DivideByZero).ctx(ctx);
                 }
                 Value::Integer(l / rn)
             }
             Value::Mod(l, r) => {
-                let l = self.get_int(l)?;
-                let rn = self.get_int(r)?;
+                let l = int(self, l)?;
+                let rn = int(self, r)?;
                 if rn == 0 {
-                    return self.error(self.span(r), MsgDetails::DivideByZero);
+                    return self.error(r, ErrorType::DivideByZero).ctx(ctx);
                 }
                 Value::Integer(l % rn)
             }
-            Value::Neg(e) => Value::Integer(c!(0i64.checked_sub(self.get_int(e)?))?),
+            Value::Neg(e) => {
+                Value::Integer(c!(0i64.checked_sub(int(self, e)?)))
+            },
             _ => unreachable!(),
         };
 
-        *val = new;
+        *expr.val.borrow_mut() = new;
 
         Ok(())
     }
 
     fn force_bool(&mut self, expr: &Expr) -> Result {
         let mut val = expr.val.borrow_mut();
+        let ctx = ErrorContext::EvalBool(expr.id);
+
+        fn get<U>(u: Result<U>, ctx: ErrorContext) -> Result<U> {
+            match u {
+                Ok(v) => Ok(v),
+                Err(mut e) => {
+                    e.context.push(ctx);
+                    Err(e)
+                }
+            }
+        }
+        let int = |slf: &mut Self, v| get(slf.get_int(v), ctx);
+        let bol = |slf: &mut Self, v| get(slf.get_bool(v), ctx);
 
         let new = match *val {
-            Value::Gt(l, r) => Value::Bool(self.get_int(l)? > self.get_int(r)?),
-            Value::Lt(l, r) => Value::Bool(self.get_int(l)? < self.get_int(r)?),
-            Value::Ge(l, r) => Value::Bool(self.get_int(l)? >= self.get_int(r)?),
-            Value::Le(l, r) => Value::Bool(self.get_int(l)? <= self.get_int(r)?),
+            Value::Gt(l, r) => Value::Bool(int(self, l)? > int(self, r)?),
+            Value::Lt(l, r) => Value::Bool(int(self, l)? < int(self, r)?),
+            Value::Ge(l, r) => Value::Bool(int(self, l)? >= int(self, r)?),
+            Value::Le(l, r) => Value::Bool(int(self, l)? <= int(self, r)?),
             Value::Eq(l, r) => Value::Bool(self.equal_to(r, l)?),
             Value::Ne(l, r) => Value::Bool(!self.equal_to(r, l)?),
-            Value::Impl(l, r) => Value::Bool(!self.get_bool(l)? || self.get_bool(r)?),
-            Value::And(l, r) => Value::Bool(self.get_bool(l)? && self.get_bool(r)?),
-            Value::Or(l, r) => Value::Bool(self.get_bool(l)? || self.get_bool(r)?),
-            Value::Not(e) => Value::Bool(!self.get_bool(e)?),
+            Value::Impl(l, r) => Value::Bool(!bol(self, l)? || bol(self, r)?),
+            Value::And(l, r) => Value::Bool(bol(self, l)? && bol(self, r)?),
+            Value::Or(l, r) => Value::Bool(bol(self, l)? || bol(self, r)?),
+            Value::Not(e) => Value::Bool(!bol(self, e)?),
             Value::Test(s, path) => {
                 let mut set = s;
-                let mut path = &self.get_path(path)?[..];
+                let mut path = &self.get_path(path).ctx(ctx)?[..];
                 while !path.is_empty() {
-                    let selector = self.get_selector(path[0])?;
-                    set = match self.get_opt_field(set, &selector, None)? {
+                    let selector = self.get_selector(path[0]).ctx(ctx)?;
+                    set = match self.get_opt_field(set, &selector, None).ctx(ctx)? {
                         Some(f) => f,
                         None => break,
                     };
@@ -221,10 +250,11 @@ impl Eval {
 
     fn force_overlay(&mut self, expr: &Expr) -> Result {
         let mut val = expr.val.borrow_mut();
+        let ctx = ErrorContext::EvalOverlay(expr.id);
 
         let new = if let Value::Overlay(bottom, top) = *val {
-            let bottom = self.get_fields(bottom)?;
-            let top = self.get_fields(top)?;
+            let bottom = self.get_fields(bottom).ctx(ctx)?;
+            let top = self.get_fields(top).ctx(ctx)?;
 
             let mut new = (*bottom).clone();
 
@@ -246,18 +276,19 @@ impl Eval {
 
     fn force_concat(&mut self, expr: &Expr) -> Result {
         let mut val = expr.val.borrow_mut();
+        let ctx = ErrorContext::EvalConcat(expr.id);
 
         let new = if let Value::Concat(l, r) = *val {
             let left = self.resolve(l)?;
             let left = left.val.borrow();
             match *left {
                 Value::String(left) => {
-                    let right = self.get_string(r)?;
+                    let right = self.get_string(r).ctx(ctx)?;
                     let new = self.store.concat(left, right);
                     Value::String(new)
                 }
                 Value::List(ref left) => {
-                    let right = self.get_list(r)?;
+                    let right = self.get_list(r).ctx(ctx)?;
                     if right.len() == 0 {
                         Value::List(left.clone())
                     } else {
@@ -271,9 +302,9 @@ impl Eval {
                 }
                 _ => {
                     return self.error(
-                        self.span(l),
-                        MsgDetails::FoundExpr("String or List", self.store.get_expr(l)),
-                    );
+                        l,
+                        ErrorType::UnexpectedExpr(&[ValueType::String, ValueType::List], left.ty()),
+                    ).ctx(ctx);
                 }
             }
         } else {
@@ -290,10 +321,10 @@ impl Eval {
         expr: &Expr,
         scope: &mut Scope<ExprId>,
         in_fn_body: bool,
-    ) -> Result {
+    ) {
         macro_rules! resolve {
             ($a:expr) => {{
-                self.force_bind(&self.store.get_expr($a), scope, in_fn_body)?
+                self.force_bind(&self.store.get_expr($a), scope, in_fn_body);
             }};
         }
 
@@ -305,7 +336,7 @@ impl Eval {
                 if let Some(e) = scope.get(id) {
                     *val = Value::Resolved(Some(id), e);
                 }
-                return Ok(());
+                return;
             }
         }
 
@@ -335,7 +366,7 @@ impl Eval {
                 if let Some(new_val) = new_val {
                     *val = new_val;
                 }
-                return Ok(());
+                return;
             }
         }
 
@@ -376,7 +407,7 @@ impl Eval {
                 if let Some(new_val) = new_val {
                     *val = new_val;
                 }
-                return Ok(());
+                return;
             }
         }
 
@@ -399,7 +430,7 @@ impl Eval {
                         }
                     }
                 }
-                self.force_bind(&self.store.get_expr(body), scope, true)?;
+                self.force_bind(&self.store.get_expr(body), scope, true);
                 match pat.val {
                     FnArg::Ident(id) => scope.pop(id),
                     FnArg::Pat(id, ref fields, _) => {
@@ -411,7 +442,7 @@ impl Eval {
                         }
                     }
                 }
-                return Ok(());
+                return;
             }
         }
 
@@ -500,14 +531,14 @@ impl Eval {
                 }
             }
         }
-        Ok(())
     }
 
     fn force_cond(&mut self, expr: &Expr) -> Result {
         let mut val = expr.val.borrow_mut();
+        let ctx = ErrorContext::EvalCond(expr.id);
 
         let new = if let Value::Cond(cond, then, el) = *val {
-            if self.get_bool(cond)? {
+            if self.get_bool(cond).ctx(ctx)? {
                 self.force(then)?;
                 then
             } else {
@@ -539,16 +570,27 @@ impl Eval {
                 *val = Value::String(id);
             }
             _ => {
+                drop(val);
                 return self.error(
-                    self.span(e),
-                    MsgDetails::CannotStringify(self.store.get_expr(e)),
-                );
+                    expr.id,
+                    ErrorType::UnexpectedExpr(&[ValueType::String, ValueType::Integer], dst.ty()),
+                ).ctx(ErrorContext::EvalStringify(expr.id));
             }
         }
         Ok(())
     }
 
     fn force_apl(&mut self, apl: &Expr) -> Result {
+        match self.force_apl_(apl) {
+            Ok(()) => Ok(()),
+            Err(mut e) => {
+                e.context.push(ErrorContext::EvalApl(apl.id));
+                Err(e)
+            }
+        }
+    }
+
+    fn force_apl_(&mut self, apl: &Expr) -> Result {
         let (func, arg) = match *apl.val.borrow() {
             Value::Apl(func, arg) => (func, arg),
             _ => unreachable!(),
@@ -575,7 +617,7 @@ impl Eval {
                 if !wild {
                     for &id in arg_fields.keys() {
                         if fields.get(&id).is_none() {
-                            return self.error(self.span(arg), MsgDetails::FnPattern(id));
+                            return self.error(arg, ErrorType::ExtraArgument(id));
                         }
                     }
                 }
@@ -586,7 +628,7 @@ impl Eval {
                         scope.bind(id, alt);
                     } else {
                         return self
-                            .error(self.span(arg), MsgDetails::FnMissingField(id));
+                            .error(arg, ErrorType::MissingArgument(id));
                     }
                 }
                 if let Some(at) = at {
@@ -595,8 +637,8 @@ impl Eval {
             }
         }
 
-        let new_body = self.deep_copy(body)?;
-        self.force_bind(&self.store.get_expr(new_body), &mut scope, false)?;
+        let new_body = self.deep_copy(body);
+        self.force_bind(&self.store.get_expr(new_body), &mut scope, false);
         self.force(new_body)?;
 
         *apl.val.borrow_mut() = Value::Resolved(None, new_body);
@@ -636,19 +678,20 @@ impl Eval {
     fn force_select(&mut self, expr: &Expr) -> Result {
         let res = {
             let val = expr.val.borrow();
+            let ctx = ErrorContext::EvalSelect(expr.id);
 
             let (mut set, path, alt) = match *val {
                 Value::Select(s, p, a) => (s, p, a),
                 _ => unreachable!(),
             };
 
-            let mut path = &self.get_path(path)?[..];
+            let mut path = &self.get_path(path).ctx(ctx)?[..];
             let mut bad_path = Selector::Integer(0);
             let mut last_ok = set;
 
             while !path.is_empty() {
-                let selector = self.get_selector(path[0])?;
-                set = match self.get_opt_field(set, &selector, Some(&mut bad_path))? {
+                let selector = self.get_selector(path[0]).ctx(ctx)?;
+                set = match self.get_opt_field(set, &selector, Some(&mut bad_path)).ctx(ctx)? {
                     Some(f) => f,
                     _ => break,
                 };
@@ -662,15 +705,14 @@ impl Eval {
                     self.force(alt)?;
                     alt
                 } else {
-                    match bad_path {
-                        Selector::Ident(i) => {
-                            return self.error(err_span, MsgDetails::SetHasNoField(i));
-                        }
-                        Selector::Integer(i) => {
-                            return self.error(err_span, MsgDetails::ListHasNoField(i));
-                        }
+                    let et = match bad_path {
+                        Selector::Ident(i) => ErrorType::MissingSetField(i),
+                        Selector::Integer(i) => ErrorType::MissingListField(i),
                         _ => unreachable!(),
-                    }
+                    };
+                    let mut e = self.error_(set, et);
+                    e.span = err_span;
+                    return Err(e);
                 }
             } else {
                 self.force(set)?;

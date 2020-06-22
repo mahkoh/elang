@@ -5,8 +5,9 @@ use crate::types::{
 };
 use std::rc::Rc;
 
-use crate::{eval::Eval, Fields, MsgDetails};
+use crate::{eval::Eval, Fields};
 use std::collections::HashMap;
+use crate::types::diagnostic::ErrorType;
 
 impl Eval {
     /// Forces the expression and tries to interpret the created datatype expression as a
@@ -25,8 +26,8 @@ impl Eval {
         match *val {
             Value::Bool(b) => Ok(b),
             _ => self.error(
-                self.span(expr),
-                MsgDetails::FoundExpr("boolean", res.clone()),
+                expr,
+                ErrorType::UnexpectedExpr(&[ValueType::Bool], val.ty()),
             ),
         }
     }
@@ -37,8 +38,8 @@ impl Eval {
         match *val {
             Value::String(s) => Ok(s),
             _ => self.error(
-                self.span(expr),
-                MsgDetails::FoundExpr("string", res.clone()),
+                expr,
+                ErrorType::UnexpectedExpr(&[ValueType::String], val.ty()),
             ),
         }
     }
@@ -59,8 +60,8 @@ impl Eval {
         match *val {
             Value::Integer(i) => Ok(i),
             _ => self.error(
-                self.span(expr),
-                MsgDetails::FoundExpr("integer", res.clone()),
+                expr,
+                ErrorType::UnexpectedExpr(&[ValueType::Integer], val.ty()),
             ),
         }
     }
@@ -81,7 +82,7 @@ impl Eval {
         match *val {
             Value::List(ref l) => Ok(l.clone()),
             Value::Null => Ok(Rc::from(vec![].into_boxed_slice())),
-            _ => self.error(self.span(expr), MsgDetails::FoundExpr("list", res.clone())),
+            _ => self.error(expr, ErrorType::UnexpectedExpr(&[ValueType::List], val.ty())),
         }
     }
 
@@ -124,14 +125,14 @@ impl Eval {
                     Value::String(s) => Selector::Ident(s),
                     Value::Integer(i) => {
                         if (isize::max_value() as i64) < i {
-                            return self.error(self.span(e), MsgDetails::OutOfBounds);
+                            return self.error(e, ErrorType::OutOfBoundsSelector(i));
                         }
                         Selector::Integer(i as usize)
                     }
                     _ => {
                         return self.error(
-                            self.span(e),
-                            MsgDetails::FoundExpr("integer or string", expr.clone()),
+                            e,
+                            ErrorType::UnexpectedExpr(&[ValueType::Integer, ValueType::String], res.ty()),
                         )
                     }
                 }
@@ -158,10 +159,10 @@ impl Eval {
         let _ = out.map(|o| *o = eval_sel.clone());
 
         self.error(
-            self.span(expr),
+            expr,
             match eval_sel {
-                Selector::Ident(i) => MsgDetails::SetHasNoField(i),
-                Selector::Integer(i) => MsgDetails::ListHasNoField(i),
+                Selector::Ident(i) => ErrorType::MissingSetField(i),
+                Selector::Integer(i) => ErrorType::MissingListField(i),
                 _ => unreachable!(),
             },
         )
@@ -195,11 +196,11 @@ impl Eval {
             }
             (&Value::Null, _) => Ok(None),
             _ => self.error(
-                self.span(expr),
+                expr,
                 if let Selector::Ident(..) = sel {
-                    MsgDetails::UnexpectedValueType(&[ValueType::Set], res.clone())
+                    ErrorType::UnexpectedExpr(&[ValueType::Set], val.ty())
                 } else {
-                    MsgDetails::UnexpectedValueType(&[ValueType::List], res.clone())
+                    ErrorType::UnexpectedExpr(&[ValueType::List], val.ty())
                 },
             ),
         }
@@ -222,10 +223,10 @@ impl Eval {
             Value::Set(ref fields, _) => Ok(fields.clone()),
             Value::Null => Ok(Rc::new(HashMap::new())),
             _ => self.error(
-                self.span(expr),
-                MsgDetails::UnexpectedValueType(
+                expr,
+                ErrorType::UnexpectedExpr(
                     &[ValueType::Set, ValueType::Null],
-                    res.clone(),
+                    val.ty()
                 ),
             ),
         }
@@ -247,8 +248,8 @@ impl Eval {
         match *val {
             Value::Fn(ref f) => Ok(f.clone()),
             _ => self.error(
-                self.span(expr),
-                MsgDetails::UnexpectedValueType(&[ValueType::Fn], res.clone()),
+                expr,
+                ErrorType::UnexpectedExpr(&[ValueType::Fn], val.ty()),
             ),
         }
     }
@@ -259,8 +260,8 @@ impl Eval {
         match *val {
             Value::Path(ref f) => Ok(f.clone()),
             _ => self.error(
-                e.span,
-                MsgDetails::UnexpectedValueType(&[ValueType::Path], e.clone()),
+                expr,
+                ErrorType::UnexpectedExpr(&[ValueType::Path], val.ty()),
             ),
         }
     }
@@ -271,8 +272,8 @@ impl Eval {
         match *val {
             Value::Selector(ref s) => Ok(s.clone()),
             _ => self.error(
-                e.span,
-                MsgDetails::UnexpectedValueType(&[ValueType::Selector], e.clone()),
+                expr,
+                ErrorType::UnexpectedExpr(&[ValueType::Selector], val.ty()),
             ),
         }
     }

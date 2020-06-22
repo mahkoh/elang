@@ -1,6 +1,6 @@
-use crate::diag::{TestDiag, Tmsg};
+use crate::diag::{TestDiag};
 use bstr::ByteSlice;
-use elang::{util::codemap::Codemap, Elang, ExprId, MsgLevel, Value};
+use elang::{util::codemap::Codemap, Elang, ExprId, Value, Error, ErrorType};
 use std::{cell::RefCell, fs::DirEntry, os::unix::ffi::OsStrExt, rc::Rc};
 
 #[test]
@@ -39,10 +39,14 @@ fn test(dir: DirEntry) -> bool {
 
     let res = match e.parse(lo, &in_bytes) {
         Ok(r) => r,
-        _ => return true,
+        Err(e) => {
+            diag.handle(&e);
+            return true;
+        }
     };
 
-    if e.eval(res).is_err() {
+    if let Err(e) = e.eval(res) {
+        diag.handle(&e);
         return true;
     }
 
@@ -143,22 +147,10 @@ impl Test {
     }
 
     fn error(&self, mut expr: ExprId, msg: String) {
-        self.diag
-            .handle(Tmsg::Custom(self.e.span(expr), MsgLevel::Error, msg));
-        loop {
-            let e = self.e.get_expr(expr);
-            let e = e.value().borrow();
-            expr = match *e {
-                Value::Resolved(_, e) => {
-                    self.diag.handle(Tmsg::Custom(
-                        self.e.span(e),
-                        MsgLevel::Notice,
-                        "via".to_string(),
-                    ));
-                    e
-                }
-                _ => break,
-            };
-        }
+        self.diag.handle(&Error {
+            span: self.e.span(expr),
+            error: ErrorType::UnexpectedEndOfInput,
+            context: vec![]
+        });
     }
 }

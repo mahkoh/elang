@@ -1,4 +1,3 @@
-use crate::types::result::Result;
 use std::{cmp, mem};
 
 pub trait Parsable: Sized {
@@ -36,12 +35,14 @@ fn unsigned(bytes: &[u8], max: u64) -> (u64, usize) {
     if bytes.len() < 2 {
         return dec(bytes, max);
     }
-    match (bytes[0], bytes[1]) {
-        (b'0', b'b') => bin(&bytes[2..], max).map(|(val, len)| (val, len + 2)),
-        (b'0', b'o') => oct(&bytes[2..], max).map(|(val, len)| (val, len + 2)),
-        (b'0', b'x') => hex(&bytes[2..], max).map(|(val, len)| (val, len + 2)),
-        _ => dec(bytes, max),
-    }
+    let (offset, f): (_, fn(&[u8], u64) -> (u64, usize)) = match (bytes[0], bytes[1]) {
+        (b'0', b'b') => (2, bin),
+        (b'0', b'o') => (2, oct),
+        (b'0', b'x') => (2, hex),
+        _ => (0, dec),
+    };
+    let (val, len) = f(&bytes[offset..], max);
+    (val, len + offset)
 }
 
 fn signed(bytes: &[u8], min: i64, max: i64) -> (i64, usize) {
@@ -49,19 +50,27 @@ fn signed(bytes: &[u8], min: i64, max: i64) -> (i64, usize) {
         return (0, 0);
     }
     match bytes[0] {
-        b'+' => unsigned(&bytes[1..], max as u64).map(|(val, len)| (val as i64, len + 1)),
-        b'-' => unsigned(&bytes[1..], 0i64.wrapping_sub(min) as u64)
-            .map(|(val, len)| (-(val as i64), len + 1)),
-        _ => unsigned(bytes, max as u64).map(|(val, len)| (val as i64, len)),
+        b'+' => {
+            let (val, len) = unsigned(&bytes[1..], max as u64);
+            (val as i64, len + 1)
+        },
+        b'-' => {
+            let (val, len) = unsigned(&bytes[1..], 0i64.wrapping_sub(min) as u64);
+            (-(val as i64), len + 1)
+        },
+        _ => {
+            let (val, len) = unsigned(bytes, max as u64);
+            (val as i64, len)
+        },
     }
 }
 
 macro_rules! unsigned {
     ($name:ident) => {
         impl Parsable for $name {
-            fn parse_bytes_init(bytes: &[u8]) -> Result<(Self, usize)> {
-                unsigned(bytes, $name::max_value() as u64)
-                    .map(|(val, len)| (val as $name, len))
+            fn parse_bytes_init(bytes: &[u8]) -> (Self, usize) {
+                let (val, len) = unsigned(bytes, $name::max_value() as u64);
+                (val as $name, len)
             }
         }
     };
@@ -77,8 +86,8 @@ macro_rules! signed {
     ($name:ident) => {
         impl Parsable for $name {
             fn parse_bytes_init(bytes: &[u8]) -> (Self, usize) {
-                signed(bytes, $name::min_value() as i64, $name::max_value() as i64)
-                    .map(|(val, len)| (val as $name, len))
+                let (val, len) = signed(bytes, $name::min_value() as i64, $name::max_value() as i64);
+                (val as $name, len)
             }
         }
     };
@@ -106,7 +115,7 @@ macro_rules! impl_fw {
                         $(
                             $range => (val * (1 << $width)) + (bytes[i] - $min + $skip) as $ty,
                         )+
-                        _ => return Ok(($name(val), i)),
+                        _ => return ($name(val), i),
                     };
                 }
                 ($name(val), bytes.len())

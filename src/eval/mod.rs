@@ -1,6 +1,5 @@
 use crate::{
     types::{
-        diagnostic::{MsgDetails, MsgLevel},
         result::Result,
         span::{Span, Spanned},
         store::Store,
@@ -9,13 +8,14 @@ use crate::{
     Error,
 };
 use std::{collections::HashMap, rc::Rc};
+use crate::types::diagnostic::{ErrorType, ErrorContext};
 
 mod force;
 mod get;
 
 pub struct Eval {
     store: Store,
-    force_trace: Vec<Span>,
+    force_trace: Vec<ExprId>,
 }
 
 impl Eval {
@@ -67,10 +67,10 @@ impl Eval {
         self.store.get_expr(expr).span
     }
 
-    pub fn deep_copy(&mut self, target: ExprId) -> Result<ExprId> {
+    pub fn deep_copy(&mut self, target: ExprId) -> ExprId {
         macro_rules! copy {
             ($e:expr) => {
-                self.deep_copy($e)?
+                self.deep_copy($e)
             };
         }
 
@@ -81,7 +81,7 @@ impl Eval {
         macro_rules! new {
             ($e:expr) => {{
                 let e = $e;
-                Ok(self.store.add_expr(target_span, e))
+                self.store.add_expr(target_span, e)
             }};
         }
 
@@ -274,12 +274,30 @@ impl Eval {
         new!(rv)
     }
 
-    fn error<T>(&mut self, span: Span, error: MsgDetails) -> Result<T> {
-        Err(Error {
+    fn error<T>(&mut self, eid: ExprId, error: ErrorType) -> Result<T> {
+        Err(self.error_(eid, error))
+    }
+
+    fn error_(&mut self, mut eid: ExprId, error: ErrorType) -> Error {
+        let mut ctx = vec!();
+        let mut span;
+        loop {
+            let expr = self.store.get_expr(eid);
+            span = expr.span;
+            let expr = expr.val.borrow();
+            match *expr {
+                Value::Resolved(_, new) => {
+                    ctx.push(ErrorContext::EvalResolved(eid));
+                    eid = new;
+                },
+                _ => break,
+            }
+        }
+        ctx.reverse();
+        Error {
             span,
-            level: MsgLevel::Error,
-            details: error,
-            children: vec![],
-        })
+            error,
+            context: ctx,
+        }
     }
 }

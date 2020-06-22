@@ -1,5 +1,5 @@
 use crate::diag::TestDiag;
-use elang::{util::codemap::Codemap, Elang, Error, MsgLevel};
+use elang::{util::codemap::Codemap, Elang, Error};
 use std::{cell::RefCell, fs::DirEntry, os::unix::ffi::OsStrExt, rc::Rc};
 
 #[test]
@@ -22,14 +22,12 @@ struct ErrorDiag {
 
 impl ErrorDiag {
     fn handle(&self, message: Error) {
-        if message.level == MsgLevel::Error {
-            let mut lo = self.lo.borrow_mut();
-            if lo.is_some() {
-                panic!("multiple errors");
-            }
-            *lo = Some(message.span.lo());
+        let mut lo = self.lo.borrow_mut();
+        if lo.is_some() {
+            panic!("multiple errors");
         }
-        self.td.handle(message.into())
+        *lo = Some(message.span.lo());
+        self.td.handle(&message)
     }
 }
 
