@@ -1,12 +1,9 @@
 use crate::{
     lexer::Lexer,
     types::{
-        diagnostic::{
-            ErrorContext, ErrorType,
-            TokenAlternative, Error,
-        },
+        diagnostic::{Error, ErrorContext, ErrorType, TokenAlternative},
         op::Op,
-        result::Result,
+        result::{Result, ResultUtil},
         span::{Span, Spanned},
         stack::Stack,
         store::{Store, StrId},
@@ -18,7 +15,6 @@ use std::{
     collections::{hash_map::Entry, HashMap},
     rc::Rc,
 };
-use crate::types::result::ResultUtil;
 
 /// An expression parser.
 pub struct Parser<'a> {
@@ -138,9 +134,9 @@ impl<'a> Parser<'a> {
                     let path = match self.parse_attr_path() {
                         Ok(path) => path,
                         Err(e) => {
-                            return Err(e.add_context(ErrorContext::ParseTest(
-                                next.span.lo,
-                            )))
+                            return Err(
+                                e.add_context(ErrorContext::ParseTest(next.span.lo))
+                            )
                         }
                     };
                     let span = Span::new(expr.span.lo, path.span.hi);
@@ -161,7 +157,9 @@ impl<'a> Parser<'a> {
 
                     stack.next_op(op);
                     let expr = stack.pop_expr();
-                    let path = self.parse_attr_path().ctx(ErrorContext::ParseSelect(next.span.lo))?;
+                    let path = self
+                        .parse_attr_path()
+                        .ctx(ErrorContext::ParseSelect(next.span.lo))?;
                     let (hi, alt) = match self.lexer.try_peek(0)? {
                         Some(Spanned { val: Token::Or, .. }) => {
                             self.lexer.skip(1);
@@ -275,9 +273,9 @@ impl<'a> Parser<'a> {
                 let closing = match self.lexer.next_right_paren() {
                     Ok(c) => c,
                     Err(e) => {
-                        return Err(e.add_context(
-                            ErrorContext::ParseParenthesized(token.span.lo),
-                        ));
+                        return Err(e.add_context(ErrorContext::ParseParenthesized(
+                            token.span.lo,
+                        )));
                     }
                 };
                 let expr_ = self.store.get_expr(expr.val).val.borrow().clone();
@@ -325,8 +323,7 @@ impl<'a> Parser<'a> {
             Token::Ident(i) => Selector::Ident(i),
             Token::Integer(i) => {
                 if i < 0 || (isize::max_value() as i64) < i {
-                    return self
-                        .error(next.span, ErrorType::OutOfBoundsSelector(i));
+                    return self.error(next.span, ErrorType::OutOfBoundsSelector(i));
                 }
                 Selector::Integer(i as usize)
             }
@@ -426,10 +423,8 @@ impl<'a> Parser<'a> {
             if second.val == Token::At {
                 let (pat_span, pat, wild) = self.parse_fn_pat().ctx(ctx)?;
                 if let Some(&(span, _)) = pat.get(&id) {
-                    return self.error(
-                        span,
-                        ErrorType::DuplicateIdentifier(id, first.span),
-                    );
+                    return self
+                        .error(span, ErrorType::DuplicateIdentifier(id, first.span));
                 }
                 self.lexer.next_colon().ctx(ctx)?;
                 let body = self.parse_expr()?;
@@ -524,10 +519,7 @@ impl<'a> Parser<'a> {
             match vars.entry(ident) {
                 Entry::Occupied(e) => {
                     return self
-                        .error(
-                            span,
-                            ErrorType::DuplicateIdentifier(ident, e.get().0),
-                        )
+                        .error(span, ErrorType::DuplicateIdentifier(ident, e.get().0))
                         .ctx(ctx);
                 }
                 Entry::Vacant(e) => e.insert((span, alt)),
@@ -637,10 +629,7 @@ impl<'a> Parser<'a> {
             match bindings.entry(name) {
                 Entry::Occupied(e) => {
                     return self
-                        .error(
-                            span.span,
-                            ErrorType::DuplicateIdentifier(name, e.get().0),
-                        )
+                        .error(span.span, ErrorType::DuplicateIdentifier(name, e.get().0))
                         .ctx(ctx);
                 }
                 Entry::Vacant(e) => e.insert((span.span, expr.val)),
@@ -777,10 +766,7 @@ impl<'a> Parser<'a> {
                             return self
                                 .error(
                                     next.span,
-                                    ErrorType::DuplicateIdentifier(
-                                        ident,
-                                        e.get().0,
-                                    ),
+                                    ErrorType::DuplicateIdentifier(ident, e.get().0),
                                 )
                                 .ctx(ctx);
                         }

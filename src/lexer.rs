@@ -1,18 +1,12 @@
-use crate::{
-    types::{
-        diagnostic::{
-            Error, ErrorContext, ErrorType,
-            TokenAlternative,
-        },
-        num::{HexU32, Parsable},
-        result::Result,
-        span::{Span, Spanned},
-        store::{Store, StrId},
-        token::{SToken, Token, TokenType},
-    },
+use crate::types::{
+    diagnostic::{Error, ErrorContext, ErrorType, TokenAlternative},
+    num::{HexU32, Parsable},
+    result::{Result, ResultUtil},
+    span::{Span, Spanned},
+    store::{Store, StrId},
+    token::{SToken, Token, TokenType},
 };
 use std::collections::VecDeque;
-use crate::types::result::ResultUtil;
 
 pub struct CharStream<'a> {
     src: &'a [u8],
@@ -501,10 +495,8 @@ impl<'a> Lexer<'a> {
         match std::char::from_u32(val.0) {
             Some(c) => Ok(c),
             _ => {
-                return self.error(
-                    Span::new(before, after),
-                    ErrorType::InvalidCodePoint(val.0),
-                );
+                return self
+                    .error(Span::new(before, after), ErrorType::InvalidCodePoint(val.0));
             }
         }
     }

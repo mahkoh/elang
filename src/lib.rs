@@ -5,7 +5,7 @@ pub use crate::{
     lexer::Lexer,
     parser::Parser,
     types::{
-        diagnostic::{Error},
+        diagnostic::{Error, ErrorContext, ErrorType, TokenAlternative},
         result::Result,
         span::Span,
         store::{Store, StrId},
@@ -13,7 +13,6 @@ pub use crate::{
     },
 };
 use std::{convert::TryInto, rc::Rc};
-pub use crate::types::diagnostic::{ErrorType, ErrorContext, TokenAlternative};
 
 mod eval;
 mod funcs;
@@ -70,7 +69,7 @@ impl Elang {
         return Err(Error {
             span: Span::built_in(),
             error: details,
-            context: vec![]
+            context: vec![],
         });
     }
 

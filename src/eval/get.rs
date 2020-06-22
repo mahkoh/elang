@@ -5,9 +5,8 @@ use crate::types::{
 };
 use std::rc::Rc;
 
-use crate::{eval::Eval, Fields};
+use crate::{eval::Eval, types::diagnostic::ErrorType, Fields};
 use std::collections::HashMap;
-use crate::types::diagnostic::ErrorType;
 
 impl Eval {
     /// Forces the expression and tries to interpret the created datatype expression as a
@@ -82,7 +81,10 @@ impl Eval {
         match *val {
             Value::List(ref l) => Ok(l.clone()),
             Value::Null => Ok(Rc::from(vec![].into_boxed_slice())),
-            _ => self.error(expr, ErrorType::UnexpectedExpr(&[ValueType::List], val.ty())),
+            _ => self.error(
+                expr,
+                ErrorType::UnexpectedExpr(&[ValueType::List], val.ty()),
+            ),
         }
     }
 
@@ -132,7 +134,10 @@ impl Eval {
                     _ => {
                         return self.error(
                             e,
-                            ErrorType::UnexpectedExpr(&[ValueType::Integer, ValueType::String], res.ty()),
+                            ErrorType::UnexpectedExpr(
+                                &[ValueType::Integer, ValueType::String],
+                                res.ty(),
+                            ),
                         )
                     }
                 }
@@ -224,10 +229,7 @@ impl Eval {
             Value::Null => Ok(Rc::new(HashMap::new())),
             _ => self.error(
                 expr,
-                ErrorType::UnexpectedExpr(
-                    &[ValueType::Set, ValueType::Null],
-                    val.ty()
-                ),
+                ErrorType::UnexpectedExpr(&[ValueType::Set, ValueType::Null], val.ty()),
             ),
         }
     }
@@ -247,10 +249,7 @@ impl Eval {
         let val = res.val.borrow();
         match *val {
             Value::Fn(ref f) => Ok(f.clone()),
-            _ => self.error(
-                expr,
-                ErrorType::UnexpectedExpr(&[ValueType::Fn], val.ty()),
-            ),
+            _ => self.error(expr, ErrorType::UnexpectedExpr(&[ValueType::Fn], val.ty())),
         }
     }
 

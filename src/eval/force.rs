@@ -1,13 +1,15 @@
-use crate::{eval::Eval, types::{
-    result::Result,
-    scope::Scope,
-    span::Span,
-    tree::{Expr, ExprId, FnArg, FnType, Selector, Value},
-}, Error};
+use crate::{
+    eval::Eval,
+    types::{
+        diagnostic::{ErrorContext, ErrorType},
+        result::{Result, ResultUtil},
+        scope::Scope,
+        span::Span,
+        tree::{Expr, ExprId, FnArg, FnType, Selector, Value, ValueType},
+    },
+    Error,
+};
 use std::rc::Rc;
-use crate::types::diagnostic::{ErrorType, ErrorContext};
-use crate::types::result::ResultUtil;
-use crate::types::tree::ValueType;
 
 impl Eval {
     /// Forces (evaluates) the expression.
@@ -51,7 +53,13 @@ impl Eval {
     pub fn force(&mut self, eid: ExprId) -> Result {
         let expr = self.store.get_expr(eid);
         if expr.val.try_borrow_mut().is_err() {
-            let context = self.force_trace.iter().copied().map(ErrorContext::EvalResolved).rev().collect();
+            let context = self
+                .force_trace
+                .iter()
+                .copied()
+                .map(ErrorContext::EvalResolved)
+                .rev()
+                .collect();
             return Err(Error {
                 span: expr.span,
                 error: ErrorType::InfiniteRecursion(eid),
@@ -153,13 +161,11 @@ impl Eval {
             };
         }
 
-        let int = |slf: &mut Self, v| {
-            match slf.get_int(v) {
-                Ok(v) => Ok(v),
-                Err(mut e) => {
-                    e.context.push(ctx);
-                    Err(e)
-                }
+        let int = |slf: &mut Self, v| match slf.get_int(v) {
+            Ok(v) => Ok(v),
+            Err(mut e) => {
+                e.context.push(ctx);
+                Err(e)
             }
         };
 
@@ -189,9 +195,7 @@ impl Eval {
                 }
                 Value::Integer(l % rn)
             }
-            Value::Neg(e) => {
-                Value::Integer(c!(0i64.checked_sub(int(self, e)?)))
-            },
+            Value::Neg(e) => Value::Integer(c!(0i64.checked_sub(int(self, e)?))),
             _ => unreachable!(),
         };
 
@@ -301,10 +305,15 @@ impl Eval {
                     }
                 }
                 _ => {
-                    return self.error(
-                        l,
-                        ErrorType::UnexpectedExpr(&[ValueType::String, ValueType::List], left.ty()),
-                    ).ctx(ctx);
+                    return self
+                        .error(
+                            l,
+                            ErrorType::UnexpectedExpr(
+                                &[ValueType::String, ValueType::List],
+                                left.ty(),
+                            ),
+                        )
+                        .ctx(ctx);
                 }
             }
         } else {
@@ -316,12 +325,7 @@ impl Eval {
         Ok(())
     }
 
-    fn force_bind(
-        &mut self,
-        expr: &Expr,
-        scope: &mut Scope<ExprId>,
-        in_fn_body: bool,
-    ) {
+    fn force_bind(&mut self, expr: &Expr, scope: &mut Scope<ExprId>, in_fn_body: bool) {
         macro_rules! resolve {
             ($a:expr) => {{
                 self.force_bind(&self.store.get_expr($a), scope, in_fn_body);
@@ -571,10 +575,15 @@ impl Eval {
             }
             _ => {
                 drop(val);
-                return self.error(
-                    expr.id,
-                    ErrorType::UnexpectedExpr(&[ValueType::String, ValueType::Integer], dst.ty()),
-                ).ctx(ErrorContext::EvalStringify(expr.id));
+                return self
+                    .error(
+                        expr.id,
+                        ErrorType::UnexpectedExpr(
+                            &[ValueType::String, ValueType::Integer],
+                            dst.ty(),
+                        ),
+                    )
+                    .ctx(ErrorContext::EvalStringify(expr.id));
             }
         }
         Ok(())
@@ -627,8 +636,7 @@ impl Eval {
                     } else if let Some(alt) = alt {
                         scope.bind(id, alt);
                     } else {
-                        return self
-                            .error(arg, ErrorType::MissingArgument(id));
+                        return self.error(arg, ErrorType::MissingArgument(id));
                     }
                 }
                 if let Some(at) = at {
@@ -691,7 +699,10 @@ impl Eval {
 
             while !path.is_empty() {
                 let selector = self.get_selector(path[0]).ctx(ctx)?;
-                set = match self.get_opt_field(set, &selector, Some(&mut bad_path)).ctx(ctx)? {
+                set = match self
+                    .get_opt_field(set, &selector, Some(&mut bad_path))
+                    .ctx(ctx)?
+                {
                     Some(f) => f,
                     _ => break,
                 };

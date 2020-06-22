@@ -53,15 +53,15 @@ fn signed(bytes: &[u8], min: i64, max: i64) -> (i64, usize) {
         b'+' => {
             let (val, len) = unsigned(&bytes[1..], max as u64);
             (val as i64, len + 1)
-        },
+        }
         b'-' => {
             let (val, len) = unsigned(&bytes[1..], 0i64.wrapping_sub(min) as u64);
             (-(val as i64), len + 1)
-        },
+        }
         _ => {
             let (val, len) = unsigned(bytes, max as u64);
             (val as i64, len)
-        },
+        }
     }
 }
 
@@ -86,7 +86,8 @@ macro_rules! signed {
     ($name:ident) => {
         impl Parsable for $name {
             fn parse_bytes_init(bytes: &[u8]) -> (Self, usize) {
-                let (val, len) = signed(bytes, $name::min_value() as i64, $name::max_value() as i64);
+                let (val, len) =
+                    signed(bytes, $name::min_value() as i64, $name::max_value() as i64);
                 (val as $name, len)
             }
         }

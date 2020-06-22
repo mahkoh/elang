@@ -1,5 +1,6 @@
 use crate::{
     types::{
+        diagnostic::{ErrorContext, ErrorType},
         result::Result,
         span::{Span, Spanned},
         store::Store,
@@ -8,7 +9,6 @@ use crate::{
     Error,
 };
 use std::{collections::HashMap, rc::Rc};
-use crate::types::diagnostic::{ErrorType, ErrorContext};
 
 mod force;
 mod get;
@@ -279,7 +279,7 @@ impl Eval {
     }
 
     fn error_(&mut self, mut eid: ExprId, error: ErrorType) -> Error {
-        let mut ctx = vec!();
+        let mut ctx = vec![];
         let mut span;
         loop {
             let expr = self.store.get_expr(eid);
@@ -289,7 +289,7 @@ impl Eval {
                 Value::Resolved(_, new) => {
                     ctx.push(ErrorContext::EvalResolved(eid));
                     eid = new;
-                },
+                }
                 _ => break,
             }
         }

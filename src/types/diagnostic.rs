@@ -1,10 +1,7 @@
-use crate::types::{
-    span::Span,
-    store::StrId,
-    token::{TokenType},
-    tree::{ValueType},
+use crate::{
+    types::{span::Span, store::StrId, token::TokenType, tree::ValueType},
+    ExprId,
 };
-use crate::ExprId;
 
 #[derive(Debug)]
 pub struct Error {

@@ -1,5 +1,4 @@
-use crate::Error;
-use crate::types::diagnostic::ErrorContext;
+use crate::{types::diagnostic::ErrorContext, Error};
 
 pub type Result<T = ()> = std::result::Result<T, Error>;
 

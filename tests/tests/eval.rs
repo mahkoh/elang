@@ -1,6 +1,6 @@
-use crate::diag::{TestDiag};
+use crate::diag::TestDiag;
 use bstr::ByteSlice;
-use elang::{util::codemap::Codemap, Elang, ExprId, Value, Error, ErrorType};
+use elang::{util::codemap::Codemap, Elang, Error, ErrorType, ExprId, Value};
 use std::{cell::RefCell, fs::DirEntry, os::unix::ffi::OsStrExt, rc::Rc};
 
 #[test]
@@ -150,7 +150,7 @@ impl Test {
         self.diag.handle(&Error {
             span: self.e.span(expr),
             error: ErrorType::UnexpectedEndOfInput,
-            context: vec![]
+            context: vec![],
         });
     }
 }

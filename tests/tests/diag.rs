@@ -1,11 +1,10 @@
 use bstr::ByteSlice;
 use console::{style, Color};
-use elang::{util::codemap::{Codemap, LineIter}, Elang, Error, Span, ErrorType, TokenAlternative};
-use std::{
-    cell::RefCell,
-    rc::Rc,
-    fmt::Write,
+use elang::{
+    util::codemap::{Codemap, LineIter},
+    Elang, Error, ErrorType, Span, TokenAlternative,
 };
+use std::{cell::RefCell, fmt::Write, rc::Rc};
 
 #[derive(Clone)]
 pub struct TestDiag {
@@ -69,27 +68,35 @@ impl TestDiag {
     pub fn handle(&self, msg: &Error) {
         let text = match msg.error {
             ErrorType::UnexpectedEndOfInput => format!("unexpected end of input"),
-            ErrorType::UnexpectedToken(exp, act) => {
-                match exp {
-                    TokenAlternative::EndOfInput => format!("unexpected token. expected end of input, got `{}`", act.as_str()),
-                    TokenAlternative::StartOfExpression => format!("unexpected token. expected start of expression, got `{}`", act.as_str()),
-                    TokenAlternative::List(l) => {
-                        let mut s = format!("unexpected token. expected ");
-                        match l {
-                            &[t] => { write!(s, "`{}`", t.as_str()); },
-                            &[t1, t2] => { write!(s, "`{}` or `{}`", t1.as_str(), t2.as_str()); },
-                            _ => {
-                                for t in &l[..l.len() - 1] {
-                                    write!(&mut s, "`{}`, ", t.as_str());
-                                }
-                                write!(&mut s, " or `{}`", l.last().unwrap().as_str());
-                            }
+            ErrorType::UnexpectedToken(exp, act) => match exp {
+                TokenAlternative::EndOfInput => format!(
+                    "unexpected token. expected end of input, got `{}`",
+                    act.as_str()
+                ),
+                TokenAlternative::StartOfExpression => format!(
+                    "unexpected token. expected start of expression, got `{}`",
+                    act.as_str()
+                ),
+                TokenAlternative::List(l) => {
+                    let mut s = format!("unexpected token. expected ");
+                    match l {
+                        &[t] => {
+                            write!(s, "`{}`", t.as_str());
                         }
-                        write!(s, ", got `{}`", act.as_str());
-                        s
+                        &[t1, t2] => {
+                            write!(s, "`{}` or `{}`", t1.as_str(), t2.as_str());
+                        }
+                        _ => {
+                            for t in &l[..l.len() - 1] {
+                                write!(&mut s, "`{}`, ", t.as_str());
+                            }
+                            write!(&mut s, " or `{}`", l.last().unwrap().as_str());
+                        }
                     }
+                    write!(s, ", got `{}`", act.as_str());
+                    s
                 }
-            }
+            },
             ErrorType::OutOfBoundsLiteral => format!(""),
             ErrorType::OutOfBoundsSelector(_) => format!(""),
             ErrorType::UnexpectedIntegerSuffix(_) => format!(""),
