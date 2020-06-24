@@ -53,13 +53,13 @@ impl Eval {
     pub fn force(&mut self, eid: ExprId) -> Result {
         let expr = self.store.get_expr(eid);
         if expr.val.try_borrow_mut().is_err() {
-            let context = self
-                .force_trace
-                .iter()
-                .copied()
-                .map(ErrorContext::EvalResolved)
-                .rev()
-                .collect();
+            let mut context = vec!();
+            for ex in self.force_trace.iter().rev() {
+                match context.last() {
+                    Some(ErrorContext::EvalResolved(e)) if e == ex => { },
+                    _ => context.push(ErrorContext::EvalResolved(*ex)),
+                }
+            }
             return Err(Error {
                 span: expr.span,
                 error: ErrorType::InfiniteRecursion(eid),
@@ -723,7 +723,7 @@ impl Eval {
                     };
                     let mut e = self.error_(set, et);
                     e.span = err_span;
-                    return Err(e);
+                    return Err(e).ctx(ctx);
                 }
             } else {
                 self.force(set)?;

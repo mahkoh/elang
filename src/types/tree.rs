@@ -189,6 +189,49 @@ pub enum ValueType {
     Test,
 }
 
+impl ValueType {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ValueType::Inherit => "Inherit",
+            ValueType::String => "String",
+            ValueType::Integer => "Integer",
+            ValueType::Ident => "Ident",
+            ValueType::Set => "Set",
+            ValueType::And => "And",
+            ValueType::Or => "Or",
+            ValueType::Not => "Not",
+            ValueType::Add => "Add",
+            ValueType::Sub => "Sub",
+            ValueType::Mul => "Mul",
+            ValueType::Div => "Div",
+            ValueType::Mod => "Mod",
+            ValueType::Gt => "Gt",
+            ValueType::Lt => "Lt",
+            ValueType::Ge => "Ge",
+            ValueType::Le => "Le",
+            ValueType::Eq => "Eq",
+            ValueType::Ne => "Ne",
+            ValueType::Impl => "Imlp",
+            ValueType::Overlay => "Overlay",
+            ValueType::Concat => "Concat",
+            ValueType::Apl => "Apl",
+            ValueType::Neg => "Neg",
+            ValueType::Cond => "Cond",
+            ValueType::Bool => "Bool",
+            ValueType::Null => "Null",
+            ValueType::Test => "Test",
+            ValueType::Select => "Select",
+            ValueType::List => "List",
+            ValueType::Let => "Let",
+            ValueType::Fn => "Fn",
+            ValueType::Stringify => "Stringify",
+            ValueType::Path => "Path",
+            ValueType::Selector => "Selector",
+            ValueType::Resolved => "Resolved",
+        }
+    }
+}
+
 impl Value {
     pub fn ty(&self) -> ValueType {
         match *self {

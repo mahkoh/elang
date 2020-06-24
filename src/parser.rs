@@ -767,11 +767,11 @@ impl<'a> Parser<'a> {
                     };
                 }
                 Token::Inherit => loop {
-                    let next = self
+                    let el = self
                         .lexer
                         .peek(0)
                         .ctx(ErrorContext::ParseInherit(next.span.lo))?;
-                    match next.val {
+                    match el.val {
                         Token::Comma | Token::RightBrace => break,
                         Token::Ident(ident) => {
                             self.lexer.skip(1);
@@ -779,7 +779,7 @@ impl<'a> Parser<'a> {
                                 Entry::Occupied(e) => {
                                     return self
                                         .error(
-                                            next.span,
+                                            el.span,
                                             ErrorType::DuplicateIdentifier(
                                                 ident,
                                                 e.get().0,
@@ -788,22 +788,22 @@ impl<'a> Parser<'a> {
                                         .ctx(ctx);
                                 }
                                 Entry::Vacant(e) => {
-                                    let ex = self.spanned(next.span, Value::Inherit);
-                                    e.insert((next.span, ex.val));
+                                    let ex = self.spanned(el.span, Value::Inherit);
+                                    e.insert((el.span, ex.val));
                                 }
                             };
                         }
                         _ => {
                             return self
                                 .error(
-                                    next.span,
+                                    el.span,
                                     ErrorType::UnexpectedToken(
                                         TokenAlternative::List(&[
                                             TokenType::Ident,
                                             TokenType::Comma,
                                             TokenType::RightBrace,
                                         ]),
-                                        next.ty(),
+                                        el.ty(),
                                     ),
                                 )
                                 .ctx(ErrorContext::ParseInherit(next.span.lo));

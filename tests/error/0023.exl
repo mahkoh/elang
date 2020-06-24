@@ -1,5 +1,6 @@
 let
-    a = a
+    b = a,
+    a = b
         ^ERROR
 in
     a

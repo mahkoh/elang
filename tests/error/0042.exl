@@ -2,4 +2,4 @@ let
     f = i: i * i
            ^ERROR
 in
-    f (f (f (f (f (f 2)))))
+    f (f (f (f (f (f (f 2))))))

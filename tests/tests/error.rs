@@ -42,12 +42,13 @@ fn test(dir: DirEntry) -> bool {
     for line in in_str.lines() {
         if let Some(pos) = line.find("^ERROR") {
             epos = prev_line_pos + pos;
+            prev_line_len += 1;
         } else {
             prev_line_pos += prev_line_len;
             prev_line_len = line.len() + 1;
             bytes.extend_from_slice(line.as_bytes());
-            bytes.push(b'\n');
         }
+        bytes.push(b'\n');
     }
 
     let in_bytes: Rc<[u8]> = bytes.into_boxed_slice().into();

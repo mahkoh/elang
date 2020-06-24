@@ -42,10 +42,7 @@ impl Codemap {
         {
             let mut src = &*src;
             while src.len() > 0 {
-                let pos = match src.iter().position(|&c| c == b'\n') {
-                    Some(pos) => pos + 1,
-                    _ => src.len(),
-                };
+                let pos = src.iter().position(|&c| c == b'\n').unwrap() + 1;
                 cur_pos += pos as u32;
                 src = &src[pos..];
                 lines.push(cur_pos);
@@ -97,6 +94,7 @@ impl Filemap {
             Err(l) => l - 1,
         };
         let end = match self.lines.binary_search_by(|&l| l.cmp(&span.hi)) {
+            Ok(0) => 1,
             Ok(l) => l,
             Err(l) => l,
         };

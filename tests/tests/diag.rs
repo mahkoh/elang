@@ -1,9 +1,6 @@
 use bstr::ByteSlice;
 use console::{style, Color};
-use elang::{
-    util::codemap::{Codemap, LineIter},
-    Elang, Error, ErrorType, Span, TokenAlternative,
-};
+use elang::{util::codemap::{Codemap, LineIter}, Elang, Error, ErrorType, Span, TokenAlternative, ErrorContext};
 use std::{cell::RefCell, fmt::Write, rc::Rc};
 
 #[derive(Clone)]
@@ -96,28 +93,94 @@ impl TestDiag {
                     write!(s, ", got `{}`", act.as_str());
                     s
                 }
+            }
+            ErrorType::OutOfBoundsLiteral => format!("out-of-bounds literal"),
+            ErrorType::OutOfBoundsSelector(i) => format!("out-of-bounds selector: {}", i),
+            ErrorType::UnexpectedIntegerSuffix(b) => format!("unexpected integer suffix {:?}", b),
+            ErrorType::UnexpectedByte(b) => format!("unexpected byte {:?}", b),
+            ErrorType::MissingCodePoint => format!("missing code point"),
+            ErrorType::InvalidCodePoint(i) => format!("invalid code point {}", i),
+            ErrorType::UnknownEscapeSequence(b) => format!("unknown escape sequence {:?}", b),
+            ErrorType::DuplicateIdentifier(id, prev) => {
+                let s = self.e.get_interned(id);
+                let txt = format!("duplicate identifier `{}`", s.as_bstr());
+                self.common(msg.span, Color::Red, "error: ", &txt);
+                self.common(prev, Color::Cyan, "note: ", "previous declaration here");
+                self.trace(msg);
+                return;
             },
-            ErrorType::OutOfBoundsLiteral => format!(""),
-            ErrorType::OutOfBoundsSelector(_) => format!(""),
-            ErrorType::UnexpectedIntegerSuffix(_) => format!(""),
-            ErrorType::UnexpectedByte(_) => format!(""),
-            ErrorType::MissingCodePoint => format!(""),
-            ErrorType::InvalidCodePoint(_) => format!(""),
-            ErrorType::UnknownEscapeSequence(_) => format!(""),
-            ErrorType::DuplicateIdentifier(_, _) => format!(""),
-            ErrorType::UnexpectedExpr(_, _) => format!(""),
-            ErrorType::MissingSetField(_) => format!(""),
-            ErrorType::MissingListField(_) => format!(""),
-            ErrorType::InfiniteRecursion(_) => format!(""),
-            ErrorType::CannotForceExpr(_) => format!(""),
-            ErrorType::DivideByZero => format!(""),
-            ErrorType::ExtraArgument(_) => format!(""),
-            ErrorType::MissingArgument(_) => format!(""),
-            ErrorType::MissingNewline => format!(""),
-            ErrorType::SpanOverflow => format!(""),
-            ErrorType::Overflow => format!(""),
+            ErrorType::UnexpectedExpr(expected, actual) => {
+                let mut s = format!("unexpected expression. expected ");
+                match expected {
+                    &[t] => { write!(s, "`{}`", t.as_str()); },
+                    &[t1, t2] => { write!(s, "`{}` or `{}`", t1.as_str(), t2.as_str()); },
+                    _ => {
+                        for t in &expected[..expected.len() - 1] {
+                            write!(&mut s, "`{}`, ", t.as_str());
+                        }
+                        write!(&mut s, " or `{}`", expected.last().unwrap().as_str());
+                    }
+                }
+                write!(s, ", got `{}`", actual.as_str());
+                s
+            },
+            ErrorType::MissingSetField(name) => {
+                let s = self.e.get_interned(name);
+                format!("missing set field `{}`", s.as_bstr())
+            },
+            ErrorType::MissingListField(n) => format!("missing list field {}", n),
+            ErrorType::InfiniteRecursion(_) => format!("infinite recursion"),
+            ErrorType::CannotForceExpr(ty) => format!("cannot force expression of type `{}`", ty.as_str()),
+            ErrorType::DivideByZero => format!("division by 0"),
+            ErrorType::ExtraArgument(name) => {
+                let s = self.e.get_interned(name);
+                format!("extra argument `{}`", s.as_bstr())
+            },
+            ErrorType::MissingArgument(name) =>{
+                let s = self.e.get_interned(name);
+                format!("missing argument `{}`", s.as_bstr())
+            },
+            ErrorType::MissingNewline => format!("missing newline"),
+            ErrorType::SpanOverflow => format!("span overflow"),
+            ErrorType::Overflow => format!("overflow"),
             _ => format!(""),
         };
         self.common(msg.span, Color::Red, "error: ", &text);
+        self.trace(msg);
+    }
+
+    fn trace(&self, msg: &Error) {
+        for ctx in &msg.context {
+            let s = |s| Span::new(s, s + 1);
+            let e = |s| self.e.span(s);
+            let p = |s| format!("while parsing {} starting here", s);
+            let q = |s| format!("while evaluating {}", s);
+            let (span, txt) = match *ctx {
+                ErrorContext::ParseString(start) => (s(start), p("string")),
+                ErrorContext::ParseUnicodeEscape(start) => (s(start), p("unicode escape")),
+                ErrorContext::ParseTest(start) => (s(start), p("test")),
+                ErrorContext::ParseSelect(start) => (s(start), p("select")),
+                ErrorContext::ParseParenthesized(start) => (s(start), p("parenthesized expression")),
+                ErrorContext::ParseFnHeader(start) => (s(start), p("function header")),
+                ErrorContext::ParseFnPattern(start) => (s(start), p("function pattern")),
+                ErrorContext::ParseLet(start) => (s(start), p("let")),
+                ErrorContext::ParseField(start) => (s(start), p("field")),
+                ErrorContext::ParseCond(start) => (s(start), p("cond")),
+                ErrorContext::ParseList(start) => (s(start), p("list")),
+                ErrorContext::ParseSet(start) => (s(start), p("set")),
+                ErrorContext::ParseInherit(start) => (s(start), p("inherit")),
+                ErrorContext::EvalResolved(eid) => (e(eid), format!("while evaluating")),
+                ErrorContext::EvalArithmetic(eid) => (e(eid), q("arithmetic expression")),
+                ErrorContext::EvalBool(eid) => (e(eid), q("boolean expression")),
+                ErrorContext::EvalOverlay(eid) => (e(eid), q("overlay expression")),
+                ErrorContext::EvalConcat(eid) => (e(eid), q("concat expression")),
+                ErrorContext::EvalCond(eid) => (e(eid), q("conditional expression")),
+                ErrorContext::EvalStringify(eid) => (e(eid), q("stringify expression")),
+                ErrorContext::EvalApl(eid) => (e(eid), q("function application")),
+                ErrorContext::EvalSelect(eid) => (e(eid), q("select expression")),
+                _ => unreachable!(),
+            };
+            self.common(span, Color::Cyan, "note: ", &txt);
+        }
     }
 }
