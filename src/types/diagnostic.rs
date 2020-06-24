@@ -63,7 +63,7 @@ pub enum ErrorType {
     InfiniteRecursion(ExprId),
     CannotForceExpr(ValueType),
     DivideByZero,
-    ExtraArgument(StrId),
+    ExtraArgument(StrId, Span),
     MissingArgument(StrId, Span),
     MissingNewline,
     SpanOverflow,

@@ -132,9 +132,12 @@ impl TestDiag {
             ErrorType::InfiniteRecursion(_) => format!("infinite recursion"),
             ErrorType::CannotForceExpr(ty) => format!("cannot force expression of type `{}`", ty.as_str()),
             ErrorType::DivideByZero => format!("division by 0"),
-            ErrorType::ExtraArgument(name) => {
+            ErrorType::ExtraArgument(name, span) => {
                 let s = self.e.get_interned(name);
-                format!("extra argument `{}`", s.as_bstr())
+                self.common(msg.span, Color::Red, "error: ", &format!("extra argument `{}`", s.as_bstr()));
+                self.common(span, Color::Cyan, "note: ", "parameters declared here");
+                self.trace(msg);
+                return;
             },
             ErrorType::MissingArgument(name, span) =>{
                 let s = self.e.get_interned(name);

@@ -626,7 +626,7 @@ impl Eval {
                 if !wild {
                     for &id in arg_fields.keys() {
                         if fields.get(&id).is_none() {
-                            return self.error(arg, ErrorType::ExtraArgument(id));
+                            return self.error(arg, ErrorType::ExtraArgument(id, pat.span));
                         }
                     }
                 }
