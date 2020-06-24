@@ -630,13 +630,13 @@ impl Eval {
                         }
                     }
                 }
-                for (&id, &(_, alt)) in fields.iter() {
+                for (&id, &(span, alt)) in fields.iter() {
                     if let Some(&(_, val)) = arg_fields.get(&id) {
                         scope.bind(id, val);
                     } else if let Some(alt) = alt {
                         scope.bind(id, alt);
                     } else {
-                        return self.error(arg, ErrorType::MissingArgument(id));
+                        return self.error(arg, ErrorType::MissingArgument(id, span));
                     }
                 }
                 if let Some(at) = at {
@@ -723,7 +723,8 @@ impl Eval {
                     };
                     let mut e = self.error_(set, et);
                     e.span = err_span;
-                    return Err(e).ctx(ctx);
+                    e.context.push(ctx);
+                    return Err(e);
                 }
             } else {
                 self.force(set)?;

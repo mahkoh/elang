@@ -64,7 +64,7 @@ pub enum ErrorType {
     CannotForceExpr(ValueType),
     DivideByZero,
     ExtraArgument(StrId),
-    MissingArgument(StrId),
+    MissingArgument(StrId, Span),
     MissingNewline,
     SpanOverflow,
     Overflow,

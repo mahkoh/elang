@@ -96,8 +96,8 @@ impl TestDiag {
             }
             ErrorType::OutOfBoundsLiteral => format!("out-of-bounds literal"),
             ErrorType::OutOfBoundsSelector(i) => format!("out-of-bounds selector: {}", i),
-            ErrorType::UnexpectedIntegerSuffix(b) => format!("unexpected integer suffix {:?}", b),
-            ErrorType::UnexpectedByte(b) => format!("unexpected byte {:?}", b),
+            ErrorType::UnexpectedIntegerSuffix(b) => format!("unexpected integer suffix {:?}", [b].as_bstr()),
+            ErrorType::UnexpectedByte(b) => format!("unexpected byte 0x{:02X}", b),
             ErrorType::MissingCodePoint => format!("missing code point"),
             ErrorType::InvalidCodePoint(i) => format!("invalid code point {}", i),
             ErrorType::UnknownEscapeSequence(b) => format!("unknown escape sequence {:?}", b),
@@ -136,9 +136,12 @@ impl TestDiag {
                 let s = self.e.get_interned(name);
                 format!("extra argument `{}`", s.as_bstr())
             },
-            ErrorType::MissingArgument(name) =>{
+            ErrorType::MissingArgument(name, span) =>{
                 let s = self.e.get_interned(name);
-                format!("missing argument `{}`", s.as_bstr())
+                self.common(msg.span, Color::Red, "error: ", &format!("missing argument `{}`", s.as_bstr()));
+                self.common(span, Color::Cyan, "note: ", "parameter declared here");
+                self.trace(msg);
+                return;
             },
             ErrorType::MissingNewline => format!("missing newline"),
             ErrorType::SpanOverflow => format!("span overflow"),
