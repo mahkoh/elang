@@ -35,6 +35,7 @@ fn unsigned(bytes: &[u8], max: u64) -> (u64, usize) {
     if bytes.len() < 2 {
         return dec(bytes, max);
     }
+    #[allow(clippy::type_complexity)]
     let (offset, f): (_, fn(&[u8], u64) -> (u64, usize)) = match (bytes[0], bytes[1]) {
         (b'0', b'b') => (2, bin),
         (b'0', b'o') => (2, oct),

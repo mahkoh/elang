@@ -142,7 +142,7 @@ impl Eval {
                     }
                 }
             }
-            _ => selector.clone(),
+            _ => *selector,
         };
 
         self.get_field_(expr, &sel, out)
@@ -161,7 +161,7 @@ impl Eval {
             return Ok(f);
         }
 
-        let _ = out.map(|o| *o = eval_sel.clone());
+        let _ = out.map(|o| *o = eval_sel);
 
         self.error(
             expr,
@@ -269,7 +269,7 @@ impl Eval {
         let e = self.store.get_expr(expr);
         let val = e.val.borrow();
         match *val {
-            Value::Selector(ref s) => Ok(s.clone()),
+            Value::Selector(s) => Ok(s),
             _ => self.error(
                 expr,
                 ErrorType::UnexpectedExpr(&[ValueType::Selector], val.ty()),

@@ -222,11 +222,11 @@ impl Eval {
                 }
                 Value::Path(Rc::from(nsegs.into_boxed_slice()))
             }
-            Value::Selector(ref s) => {
-                if let Selector::Expr(e) = *s {
+            Value::Selector(s) => {
+                if let Selector::Expr(e) = s {
                     Value::Selector(Selector::Expr(copy!(e)))
                 } else {
-                    Value::Selector(s.clone())
+                    Value::Selector(s)
                 }
             }
             Value::Select(target, segs, alt) => {

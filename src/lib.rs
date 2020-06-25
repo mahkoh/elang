@@ -66,11 +66,11 @@ impl Elang {
     }
 
     fn err<T>(&self, details: ErrorType) -> Result<T> {
-        return Err(Error {
+        Err(Error {
             span: Span::built_in(),
             error: details,
             context: vec![],
-        });
+        })
     }
 
     fn eval_(&self) -> eval::Eval {

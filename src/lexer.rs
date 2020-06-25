@@ -495,8 +495,7 @@ impl<'a> Lexer<'a> {
         match std::char::from_u32(val.0) {
             Some(c) => Ok(c),
             _ => {
-                return self
-                    .error(Span::new(before, after), ErrorType::InvalidCodePoint(val.0));
+                self.error(Span::new(before, after), ErrorType::InvalidCodePoint(val.0))
             }
         }
     }
