@@ -1,4 +1,4 @@
-use elang::{Elang, Error, Diagnostic};
+use elang::{Diagnostic, Elang, Error};
 use std::{cell::RefCell, fs::DirEntry, os::unix::ffi::OsStrExt, rc::Rc};
 
 #[test]

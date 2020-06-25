@@ -1,9 +1,9 @@
 use crate::types::{
     span::Span,
-    tree::{Expr, ExprId, Value},
+    tree::{Expr, ExprId, ExprType},
 };
 use std::{
-    cell::{RefCell},
+    cell::RefCell,
     collections::{hash_map::Entry, HashMap},
     convert::TryInto,
     fmt,
@@ -36,7 +36,7 @@ impl Store {
         }
     }
 
-    pub fn add_expr(&mut self, span: Span, expr: Value) -> ExprId {
+    pub fn add_expr(&mut self, span: Span, expr: ExprType) -> ExprId {
         let id = ExprId {
             id: self.exprs.len().try_into().unwrap(),
         };

@@ -1,6 +1,6 @@
 use crate::types::{
     store::Store,
-    tree::{ExprId, FnArg, FnType, Selector, Value},
+    tree::{ExprId, ExprType, FnArg, FnType},
 };
 use std::{collections::HashMap, io, io::Write};
 
@@ -64,19 +64,19 @@ fn print_tree_<W: Write>(
     let val = val.val.borrow();
 
     match *val {
-        Value::Inherit => write!(w, "{} [shape=\"box\", label=\"Inherit\"];", id),
-        Value::Number(ref i) => write!(w, "{} [label=\"{}\"];", id, i),
-        Value::Ident(i) => {
+        ExprType::Inherit => write!(w, "{} [shape=\"box\", label=\"Inherit\"];", id),
+        ExprType::Number(ref i) => write!(w, "{} [label=\"{}\"];", id, i),
+        ExprType::Ident(i) => {
             write!(w, "{} [label=\"", id)?;
             w.write_all(&store.get_str(i))?;
             write!(w, "\"];")
         }
-        Value::String(s) => {
+        ExprType::String(s) => {
             write!(w, "{} [label=\"\\\"", id)?;
             w.write_all(&store.get_str(s))?;
             write!(w, "\\\"\"];")
         }
-        Value::Resolved(i, e) => {
+        ExprType::Resolved(i, e) => {
             if let Some(i) = i {
                 write!(w, "{} [label=\"", id)?;
                 w.write_all(&store.get_str(i))?;
@@ -92,7 +92,7 @@ fn print_tree_<W: Write>(
                 pt!(e)
             }
         }
-        Value::Set(ref els, rec) => {
+        ExprType::Set(ref els, rec) => {
             if rec {
                 write!(w, "{} [shape=\"box\", label=\"rec set\"];", id)?;
             } else {
@@ -110,26 +110,26 @@ fn print_tree_<W: Write>(
             }
             Ok(())
         }
-        Value::And(l, r) => binary!("&&", l, r),
-        Value::Or(l, r) => binary!("||", l, r),
-        Value::Not(e) => unary!("!", e),
-        Value::Add(l, r) => binary!("+", l, r),
-        Value::Sub(l, r) => binary!("-", l, r),
-        Value::Mul(l, r) => binary!("*", l, r),
-        Value::Div(l, r) => binary!("/", l, r),
-        Value::Mod(l, r) => binary!("%", l, r),
-        Value::Gt(l, r) => binary!(">", l, r),
-        Value::Lt(l, r) => binary!("<", l, r),
-        Value::Ge(l, r) => binary!(">=", l, r),
-        Value::Le(l, r) => binary!("<=", l, r),
-        Value::Eq(l, r) => binary!("==", l, r),
-        Value::Ne(l, r) => binary!("!=", l, r),
-        Value::Impl(l, r) => binary!("->", l, r),
-        Value::Overlay(l, r) => binary!("//", l, r),
-        Value::Concat(l, r) => binary!("++", l, r),
-        Value::Apl(l, r) => binary!("$", l, r),
-        Value::Neg(e) => unary!("-", e),
-        Value::Cond(cond, then, el) => {
+        ExprType::And(l, r) => binary!("&&", l, r),
+        ExprType::Or(l, r) => binary!("||", l, r),
+        ExprType::Not(e) => unary!("!", e),
+        ExprType::Add(l, r) => binary!("+", l, r),
+        ExprType::Sub(l, r) => binary!("-", l, r),
+        ExprType::Mul(l, r) => binary!("*", l, r),
+        ExprType::Div(l, r) => binary!("/", l, r),
+        ExprType::Mod(l, r) => binary!("%", l, r),
+        ExprType::Gt(l, r) => binary!(">", l, r),
+        ExprType::Lt(l, r) => binary!("<", l, r),
+        ExprType::Ge(l, r) => binary!(">=", l, r),
+        ExprType::Le(l, r) => binary!("<=", l, r),
+        ExprType::Eq(l, r) => binary!("==", l, r),
+        ExprType::Ne(l, r) => binary!("!=", l, r),
+        ExprType::Impl(l, r) => binary!("->", l, r),
+        ExprType::Overlay(l, r) => binary!("//", l, r),
+        ExprType::Concat(l, r) => binary!("++", l, r),
+        ExprType::Apl(l, r) => binary!("$", l, r),
+        ExprType::Neg(e) => unary!("-", e),
+        ExprType::Cond(cond, then, el) => {
             let sid = *id;
             write!(
                 w,
@@ -147,9 +147,9 @@ fn print_tree_<W: Write>(
             write!(w, "{} -> {};", sid, id)?;
             pt!(el)
         }
-        Value::Bool(b) => write!(w, "{} [label=\"{}\"];", id, b),
-        Value::Null => write!(w, "{} [label=\"null\"];", id),
-        Value::Path(ref path) => {
+        ExprType::Bool(b) => write!(w, "{} [label=\"{}\"];", id, b),
+        ExprType::Null => write!(w, "{} [label=\"null\"];", id),
+        ExprType::Path(ref path) => {
             let sid = *id;
             write!(w, "{} [shape=\"box\", label=\"path\"];", sid)?;
             for &seg in path.iter() {
@@ -159,16 +159,7 @@ fn print_tree_<W: Write>(
             }
             Ok(())
         }
-        Value::Selector(ref ty) => match *ty {
-            Selector::Ident(i) => {
-                write!(w, "{} [label=\"", id)?;
-                w.write_all(&store.get_str(i))?;
-                write!(w, "\"];")
-            }
-            Selector::Number(ref i) => write!(w, "{} [label=\"{}\"];", id, i),
-            Selector::Expr(e) => pt!(e),
-        },
-        Value::Test(e, path) => {
+        ExprType::Test(e, path) => {
             let sid = *id;
             write!(
                 w,
@@ -183,7 +174,7 @@ fn print_tree_<W: Write>(
             write!(w, "{} -> {};", sid, id)?;
             pt!(path)
         }
-        Value::Select(e, path, alt) => {
+        ExprType::Select(e, path, alt) => {
             let sid = *id;
             write!(
                 w,
@@ -204,8 +195,8 @@ fn print_tree_<W: Write>(
             }
             Ok(())
         }
-        Value::Stringify(e) => unary!("stringify", e),
-        Value::List(ref els) => {
+        ExprType::Stringify(e) => unary!("stringify", e),
+        ExprType::List(ref els) => {
             write!(w, "{} [shape=\"box\", label=\"list\"];", id)?;
             let sid = *id;
             for &el in els.iter() {
@@ -215,7 +206,7 @@ fn print_tree_<W: Write>(
             }
             Ok(())
         }
-        Value::Let(ref lets, e) => {
+        ExprType::Let(ref lets, e) => {
             let sid = *id;
             *id += 1;
             let vid = *id;
@@ -237,7 +228,7 @@ fn print_tree_<W: Write>(
             write!(w, "{} -> {};", sid, id)?;
             pt!(e)
         }
-        Value::Fn(FnType::Normal(ref arg, body)) => {
+        ExprType::Fn(FnType::Normal(ref arg, body)) => {
             let sid = *id;
             *id += 1;
             write!(
@@ -276,7 +267,7 @@ fn print_tree_<W: Write>(
             write!(w, "{} -> {};", sid, id)?;
             pt!(body)
         }
-        Value::Fn(FnType::BuiltIn(..)) => {
+        ExprType::Fn(FnType::BuiltIn(..)) => {
             write!(w, "{} [shape=\"box\", label=\"built-in fn\"];", *id)
         }
     }

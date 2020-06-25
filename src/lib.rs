@@ -2,29 +2,28 @@
 #![allow(clippy::new_without_default)]
 
 pub use crate::{
+    diag::Diagnostic,
     types::{
         diagnostic::{Error, ErrorContext, ErrorType, TokenAlternative},
         result::Result,
         span::Span,
-        store::{Store, StrId},
-        tree::{Expr, ExprId, Fields, Selector, Value},
+        store::StrId,
+        token::TokenType,
+        value::Value,
+        tree::{Expr, ExprId, ExprKind, ExprType, Fields},
     },
-    diag::Diagnostic,
 };
-use std::{convert::TryInto, rc::Rc};
-use crate::{
-    lexer::Lexer,
-    parser::Parser,
-};
+use crate::{lexer::Lexer, parser::Parser, types::store::Store};
 use num_rational::BigRational;
+use std::{convert::TryInto, rc::Rc};
 
+mod diag;
 mod eval;
 mod funcs;
 mod lexer;
 mod parser;
 mod types;
 mod util;
-mod diag;
 
 pub struct Elang {
     store: Store,
@@ -37,7 +36,7 @@ impl Elang {
     pub fn new() -> Self {
         Self {
             store: Store::new(),
-            force_trace: vec!(),
+            force_trace: vec![],
         }
     }
 
@@ -85,7 +84,7 @@ impl Elang {
     /// After this function returns successfully, `expr_id` has been modified such that
     /// its value is one of the following:
     ///
-    /// * `Value::Integer`
+    /// * `Value::Number`
     /// * `Value::Ident`
     /// * `Value::Bool`
     /// * `Value::Null`
@@ -109,7 +108,7 @@ impl Elang {
         self.force(expr_id)
     }
 
-    pub fn add_expr(&mut self, span: Span, value: Value) -> ExprId {
+    pub fn add_expr(&mut self, span: Span, value: ExprType) -> ExprId {
         self.store.add_expr(span, value)
     }
 
@@ -152,19 +151,23 @@ impl Elang {
         self.get_list_(expr_id)
     }
 
-    pub fn get_field(&mut self, expr_id: ExprId, selector: Selector) -> Result<ExprId> {
-        self.get_field_int(expr_id, &selector, None)
+    pub fn get_field(&mut self, expr_id: ExprId, selector: ExprId) -> Result<ExprId> {
+        self.get_field_int(expr_id, selector)
     }
 
     pub fn get_opt_field(
         &mut self,
         expr_id: ExprId,
-        selector: Selector,
+        selector: ExprId,
     ) -> Result<Option<ExprId>> {
-        self.get_opt_field_(expr_id, &selector, None)
+        self.get_opt_field_(expr_id, selector)
     }
 
     pub fn get_fields(&mut self, expr_id: ExprId) -> Result<Fields> {
         self.get_fields_(expr_id)
+    }
+
+    pub fn get_value(&mut self, expr_id: ExprId) -> Result<Value> {
+        self.get_value_(expr_id)
     }
 }

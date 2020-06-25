@@ -1,7 +1,12 @@
-use elang::{Elang, Error, ErrorType, ExprId, Value, Diagnostic};
-use std::{fs::DirEntry, os::unix::ffi::OsStrExt, rc::Rc, fmt};
-use std::fmt::{Display, Formatter};
+use elang::{Diagnostic, Elang, Error, ErrorType, ExprId, ExprType};
 use num_rational::BigRational;
+use std::{
+    fmt,
+    fmt::{Display, Formatter},
+    fs::DirEntry,
+    os::unix::ffi::OsStrExt,
+    rc::Rc,
+};
 
 #[test]
 fn eval() {
@@ -63,7 +68,7 @@ impl Test {
         };
         let expr = expr.value().borrow();
         match (&*expr, expected) {
-            (&Value::Number(ref i1), serde_json::Value::Number(i2)) => {
+            (&ExprType::Number(ref i1), serde_json::Value::Number(i2)) => {
                 let i2 = if i2.is_i64() {
                     BigRational::from((i2.as_i64().unwrap().into(), 1.into()))
                 } else if i2.is_u64() {
@@ -76,14 +81,14 @@ impl Test {
                     return true;
                 }
             }
-            (Value::Bool(b1), serde_json::Value::Bool(b2)) => {
+            (ExprType::Bool(b1), serde_json::Value::Bool(b2)) => {
                 if b1 != b2 {
                     self.error(actual, format!("expected {}, got {}", b2, b1));
                     return true;
                 }
             }
-            (Value::Null, serde_json::Value::Null) => {}
-            (Value::List(ref l), serde_json::Value::Array(a)) => {
+            (ExprType::Null, serde_json::Value::Null) => {}
+            (ExprType::List(ref l), serde_json::Value::Array(a)) => {
                 if l.len() != a.len() {
                     self.error(
                         actual,
@@ -101,17 +106,21 @@ impl Test {
                 }
                 return err;
             }
-            (&Value::String(s1), serde_json::Value::String(ref s2)) => {
+            (&ExprType::String(s1), serde_json::Value::String(ref s2)) => {
                 let s1 = self.e.get_interned(s1);
                 if &*s1 != s2.as_bytes() {
                     self.error(
                         actual,
-                        format!("expected `{}`, got `{}`", s2, &String::from_utf8_lossy(&s1)),
+                        format!(
+                            "expected `{}`, got `{}`",
+                            s2,
+                            &String::from_utf8_lossy(&s1)
+                        ),
                     );
                     return true;
                 }
             }
-            (Value::Set(ref s1, false), serde_json::Value::Object(ref s2)) => {
+            (ExprType::Set(ref s1, false), serde_json::Value::Object(ref s2)) => {
                 if s1.len() != s2.len() {
                     self.error(
                         actual,
@@ -142,7 +151,7 @@ impl Test {
                 return err;
             }
             _ => {
-                self.error(actual, format!("cannot handle {:?}", expr.ty()));
+                self.error(actual, format!("cannot handle {:?}", expr.kind()));
                 return true;
             }
         }
@@ -152,17 +161,22 @@ impl Test {
     fn error(&self, expr: ExprId, msg: String) {
         #[derive(Debug)]
         struct Ce(String);
-        impl std::error::Error for Ce { }
+        impl std::error::Error for Ce {
+        }
         impl Display for Ce {
             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
                 write!(f, "{}", self.0)
             }
         }
 
-        self.diag.handle(&self.e,&Error {
-            span: self.e.span(expr),
-            error: ErrorType::Custom(Rc::new(Ce(msg))),
-            context: vec![],
-        }, |c| format!("{}", c));
+        self.diag.handle(
+            &self.e,
+            &Error {
+                span: self.e.span(expr),
+                error: ErrorType::Custom(Rc::new(Ce(msg))),
+                context: vec![],
+            },
+            |c| format!("{}", c),
+        );
     }
 }

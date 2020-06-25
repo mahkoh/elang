@@ -1,15 +1,18 @@
 #![allow(unused)]
 
-use crate::{types::{
-    span::Span,
-    store::Store,
-    tree::{BuiltInFn, Expr, FnType, Value},
-}, Elang, Error, ErrorType};
+use crate::{
+    types::{
+        span::Span,
+        store::Store,
+        tree::{BuiltInFn, Expr, ExprType, FnType},
+    },
+    Elang, Error, ErrorType,
+};
 use std::rc::Rc;
 
 macro_rules! bi {
     ($f:expr) => {
-        Value::Fn(FnType::BuiltIn(Rc::new($f)))
+        ExprType::Fn(FnType::BuiltIn(Rc::new($f)))
     };
 }
 
@@ -20,7 +23,7 @@ pub fn to_list() -> Rc<dyn BuiltInFn> {
         for &(_, val) in fields.values() {
             list.push(val);
         }
-        Ok(Value::List(Rc::from(list.into_boxed_slice())))
+        Ok(ExprType::List(Rc::from(list.into_boxed_slice())))
     };
     Rc::new(f)
 }
@@ -28,13 +31,15 @@ pub fn to_list() -> Rc<dyn BuiltInFn> {
 pub fn assert() -> Rc<dyn BuiltInFn> {
     let f = move |eval: &mut Elang, cond: Rc<Expr>| {
         if eval.get_bool(cond.id)? {
-            let f = move |eval: &mut Elang, tail: Rc<Expr>| Ok(Value::Resolved(None, tail.id));
+            let f = move |eval: &mut Elang, tail: Rc<Expr>| {
+                Ok(ExprType::Resolved(None, tail.id))
+            };
             Ok(bi!(f))
         } else {
             Err(Error {
                 span: cond.span,
                 error: ErrorType::AssertionFailed,
-                context: vec!(),
+                context: vec![],
             })
         }
     };
@@ -47,10 +52,10 @@ pub fn contains() -> Rc<dyn BuiltInFn> {
         let f = move |eval: &mut Elang, val: Rc<Expr>| {
             for &el in list.iter() {
                 if eval.equal_to(el, val.id)? {
-                    return Ok(Value::Bool(true));
+                    return Ok(ExprType::Bool(true));
                 }
             }
-            Ok(Value::Bool(false))
+            Ok(ExprType::Bool(false))
         };
         Ok(bi!(f))
     };
@@ -64,12 +69,12 @@ pub fn filter() -> Rc<dyn BuiltInFn> {
             let mut nlist = Vec::with_capacity(list.len());
             for &el in list.iter() {
                 let span = Span::new(olist.span.lo, cond.span.hi);
-                let expr = eval.add_expr(span, Value::Apl(cond.id, el));
+                let expr = eval.add_expr(span, ExprType::Apl(cond.id, el));
                 if eval.get_bool(expr)? {
                     nlist.push(el);
                 }
             }
-            Ok(Value::List(Rc::from(nlist.into_boxed_slice())))
+            Ok(ExprType::List(Rc::from(nlist.into_boxed_slice())))
         };
         Ok(bi!(f))
     };

@@ -1,9 +1,13 @@
-use crate::{types::{
-    diagnostic::{ErrorContext, ErrorType},
-    result::Result,
-    span::{Span, Spanned},
-    tree::{Expr, ExprId, FnArg, FnType, Selector, Value},
-}, Error, Elang};
+use crate::{
+    types::{
+        diagnostic::{ErrorContext, ErrorType},
+        result::Result,
+        span::{Span, Spanned},
+        tree::{Expr, ExprId, ExprType, FnArg, FnType},
+        value::Value,
+    },
+    Elang, Error, ExprKind,
+};
 use std::{collections::HashMap, rc::Rc};
 
 mod force;
@@ -16,9 +20,9 @@ impl Elang {
         let l = l.val.borrow();
         let r = r.val.borrow();
         match (&*l, &*r) {
-            (&Value::Number(ref l), &Value::Number(ref r)) => Ok(l == r),
-            (&Value::String(l), &Value::String(r)) => Ok(l == r),
-            (&Value::Null, &Value::Null) => Ok(true),
+            (&ExprType::Number(ref l), &ExprType::Number(ref r)) => Ok(l == r),
+            (&ExprType::String(l), &ExprType::String(r)) => Ok(l == r),
+            (&ExprType::Null, &ExprType::Null) => Ok(true),
             _ => Ok(false),
         }
     }
@@ -40,7 +44,7 @@ impl Elang {
         loop {
             e = self.store.get_expr(expr);
             expr = match *e.val.borrow() {
-                Value::Resolved(_, e) => e,
+                ExprType::Resolved(_, e) => e,
                 _ => break,
             };
         }
@@ -78,9 +82,9 @@ impl Elang {
             }
 
             let un: Option<(fn(_) -> _, _)> = match *val {
-                Value::Not(e) => un!(Value::Not, e),
-                Value::Neg(e) => un!(Value::Neg, e),
-                Value::Stringify(e) => un!(Value::Stringify, e),
+                ExprType::Not(e) => un!(ExprType::Not, e),
+                ExprType::Neg(e) => un!(ExprType::Neg, e),
+                ExprType::Stringify(e) => un!(ExprType::Stringify, e),
                 _ => None,
             };
 
@@ -98,24 +102,24 @@ impl Elang {
             }
 
             let bin: Option<(fn(_, _) -> _, _, _)> = match *val {
-                Value::And(l, r) => bin!(Value::And, l, r),
-                Value::Or(l, r) => bin!(Value::Or, l, r),
-                Value::Add(l, r) => bin!(Value::Add, l, r),
-                Value::Sub(l, r) => bin!(Value::Sub, l, r),
-                Value::Mul(l, r) => bin!(Value::Mul, l, r),
-                Value::Div(l, r) => bin!(Value::Div, l, r),
-                Value::Mod(l, r) => bin!(Value::Mod, l, r),
-                Value::Gt(l, r) => bin!(Value::Gt, l, r),
-                Value::Lt(l, r) => bin!(Value::Lt, l, r),
-                Value::Ge(l, r) => bin!(Value::Ge, l, r),
-                Value::Le(l, r) => bin!(Value::Le, l, r),
-                Value::Eq(l, r) => bin!(Value::Eq, l, r),
-                Value::Ne(l, r) => bin!(Value::Ne, l, r),
-                Value::Impl(l, r) => bin!(Value::Impl, l, r),
-                Value::Overlay(l, r) => bin!(Value::Overlay, l, r),
-                Value::Concat(l, r) => bin!(Value::Concat, l, r),
-                Value::Apl(l, r) => bin!(Value::Apl, l, r),
-                Value::Test(l, r) => bin!(Value::Test, l, r),
+                ExprType::And(l, r) => bin!(ExprType::And, l, r),
+                ExprType::Or(l, r) => bin!(ExprType::Or, l, r),
+                ExprType::Add(l, r) => bin!(ExprType::Add, l, r),
+                ExprType::Sub(l, r) => bin!(ExprType::Sub, l, r),
+                ExprType::Mul(l, r) => bin!(ExprType::Mul, l, r),
+                ExprType::Div(l, r) => bin!(ExprType::Div, l, r),
+                ExprType::Mod(l, r) => bin!(ExprType::Mod, l, r),
+                ExprType::Gt(l, r) => bin!(ExprType::Gt, l, r),
+                ExprType::Lt(l, r) => bin!(ExprType::Lt, l, r),
+                ExprType::Ge(l, r) => bin!(ExprType::Ge, l, r),
+                ExprType::Le(l, r) => bin!(ExprType::Le, l, r),
+                ExprType::Eq(l, r) => bin!(ExprType::Eq, l, r),
+                ExprType::Ne(l, r) => bin!(ExprType::Ne, l, r),
+                ExprType::Impl(l, r) => bin!(ExprType::Impl, l, r),
+                ExprType::Overlay(l, r) => bin!(ExprType::Overlay, l, r),
+                ExprType::Concat(l, r) => bin!(ExprType::Concat, l, r),
+                ExprType::Apl(l, r) => bin!(ExprType::Apl, l, r),
+                ExprType::Test(l, r) => bin!(ExprType::Test, l, r),
                 _ => None,
             };
 
@@ -133,7 +137,7 @@ impl Elang {
             }
 
             let tern: Option<(fn(_, _, _) -> _, _, _, _)> = match *val {
-                Value::Cond(a, b, c) => tern!(Value::Cond, a, b, c),
+                ExprType::Cond(a, b, c) => tern!(ExprType::Cond, a, b, c),
                 _ => None,
             };
 
@@ -144,85 +148,80 @@ impl Elang {
 
         // Everything else
         let rv = match *val {
-            Value::Not(..)
-            | Value::Neg(..)
-            | Value::Stringify(..)
-            | Value::And(..)
-            | Value::Or(..)
-            | Value::Add(..)
-            | Value::Sub(..)
-            | Value::Mul(..)
-            | Value::Div(..)
-            | Value::Mod(..)
-            | Value::Gt(..)
-            | Value::Lt(..)
-            | Value::Ge(..)
-            | Value::Le(..)
-            | Value::Eq(..)
-            | Value::Ne(..)
-            | Value::Impl(..)
-            | Value::Overlay(..)
-            | Value::Concat(..)
-            | Value::Apl(..)
-            | Value::Test(..)
-            | Value::Cond(..) => {
+            ExprType::Not(..)
+            | ExprType::Neg(..)
+            | ExprType::Stringify(..)
+            | ExprType::And(..)
+            | ExprType::Or(..)
+            | ExprType::Add(..)
+            | ExprType::Sub(..)
+            | ExprType::Mul(..)
+            | ExprType::Div(..)
+            | ExprType::Mod(..)
+            | ExprType::Gt(..)
+            | ExprType::Lt(..)
+            | ExprType::Ge(..)
+            | ExprType::Le(..)
+            | ExprType::Eq(..)
+            | ExprType::Ne(..)
+            | ExprType::Impl(..)
+            | ExprType::Overlay(..)
+            | ExprType::Concat(..)
+            | ExprType::Apl(..)
+            | ExprType::Test(..)
+            | ExprType::Cond(..) => {
                 // handled above
                 unreachable!();
             }
-            Value::Inherit => Value::Inherit,
-            Value::String(s) => Value::String(s),
-            Value::Number(ref i) => Value::Number(i.clone()),
-            Value::Bool(b) => Value::Bool(b),
-            Value::Null => Value::Null,
-            Value::Resolved(id, dst) => Value::Resolved(id, dst),
-            Value::Fn(FnType::BuiltIn(ref f)) => Value::Fn(FnType::BuiltIn(f.clone())),
-            Value::Ident(id) => Value::Ident(id),
-            Value::List(ref els) => {
+            ExprType::Inherit => ExprType::Inherit,
+            ExprType::String(s) => ExprType::String(s),
+            ExprType::Number(ref i) => ExprType::Number(i.clone()),
+            ExprType::Bool(b) => ExprType::Bool(b),
+            ExprType::Null => ExprType::Null,
+            ExprType::Resolved(id, dst) => ExprType::Resolved(id, dst),
+            ExprType::Fn(FnType::BuiltIn(ref f)) => {
+                ExprType::Fn(FnType::BuiltIn(f.clone()))
+            }
+            ExprType::Ident(id) => ExprType::Ident(id),
+            ExprType::List(ref els) => {
                 let mut nels = Vec::with_capacity(els.len());
                 for &el in els.iter() {
                     nels.push(copy!(el));
                 }
-                Value::List(Rc::from(nels.into_boxed_slice()))
+                ExprType::List(Rc::from(nels.into_boxed_slice()))
             }
-            Value::Set(ref fields, rec) => {
+            ExprType::Set(ref fields, rec) => {
                 let mut nfields = HashMap::with_capacity(fields.len());
                 for (&id, &(span, val)) in fields.iter() {
                     nfields.insert(id, (span, copy!(val)));
                 }
-                Value::Set(Rc::new(nfields), rec)
+                ExprType::Set(Rc::new(nfields), rec)
             }
-            Value::Let(ref fields, body) => {
+            ExprType::Let(ref fields, body) => {
                 let mut nfields = HashMap::with_capacity(fields.len());
                 for (&id, &(span, val)) in fields.iter() {
                     nfields.insert(id, (span, copy!(val)));
                 }
                 let nbody = copy!(body);
-                Value::Let(Rc::new(nfields), nbody)
+                ExprType::Let(Rc::new(nfields), nbody)
             }
-            Value::Path(ref segs) => {
+            ExprType::Path(ref segs) => {
                 let mut nsegs = Vec::with_capacity(segs.len());
                 for &seg in segs.iter() {
                     nsegs.push(copy!(seg));
                 }
-                Value::Path(Rc::from(nsegs.into_boxed_slice()))
+                ExprType::Path(Rc::from(nsegs.into_boxed_slice()))
             }
-            Value::Selector(ref s) => {
-                if let &Selector::Expr(e) = s {
-                    Value::Selector(Selector::Expr(copy!(e)))
-                } else {
-                    Value::Selector(s.clone())
-                }
-            }
-            Value::Select(target, segs, alt) => {
+            ExprType::Select(target, segs, alt) => {
                 let ntarget = copy!(target);
                 let nsegs = copy!(segs);
                 let nalt = match alt {
                     Some(alt) => Some(copy!(alt)),
                     _ => None,
                 };
-                Value::Select(ntarget, nsegs, nalt)
+                ExprType::Select(ntarget, nsegs, nalt)
             }
-            Value::Fn(FnType::Normal(
+            ExprType::Fn(FnType::Normal(
                 Spanned {
                     span,
                     val: FnArg::Ident(id),
@@ -230,9 +229,9 @@ impl Elang {
                 body,
             )) => {
                 let nbody = copy!(body);
-                Value::Fn(FnType::Normal(Spanned::new(span, FnArg::Ident(id)), nbody))
+                ExprType::Fn(FnType::Normal(Spanned::new(span, FnArg::Ident(id)), nbody))
             }
-            Value::Fn(FnType::Normal(
+            ExprType::Fn(FnType::Normal(
                 Spanned {
                     span,
                     val: FnArg::Pat(id, ref fields, wild),
@@ -251,7 +250,7 @@ impl Elang {
                 }
                 let nbody = copy!(body);
                 let pat = FnArg::Pat(id, Rc::new(nfields), wild);
-                Value::Fn(FnType::Normal(Spanned::new(span, pat), nbody))
+                ExprType::Fn(FnType::Normal(Spanned::new(span, pat), nbody))
             }
         };
 
@@ -270,7 +269,7 @@ impl Elang {
             span = expr.span;
             let expr = expr.val.borrow();
             match *expr {
-                Value::Resolved(_, new) => {
+                ExprType::Resolved(_, new) => {
                     ctx.push(ErrorContext::EvalResolved(eid));
                     eid = new;
                 }
@@ -283,5 +282,53 @@ impl Elang {
             error,
             context: ctx,
         }
+    }
+
+    pub(crate) fn get_value_(&mut self, eid: ExprId) -> Result<Value> {
+        let expr = self.resolve_(eid)?;
+        let expr = expr.val.borrow();
+        let val = match *expr {
+            ExprType::Number(ref num) => Value::Number((**num).clone()),
+            ExprType::Bool(b) => Value::Bool(b),
+            ExprType::Null => Value::Null,
+            ExprType::String(id) => Value::String(self.store.get_str(id).to_vec().into_boxed_slice()),
+            ExprType::List(ref el) => {
+                let el = el.clone();
+                drop(expr);
+                let mut l = vec![];
+                for e in el.iter() {
+                    l.push(self.get_value(*e)?);
+                }
+                Value::List(l.into_boxed_slice())
+            }
+            ExprType::Set(ref f, _) => {
+                let f = f.clone();
+                drop(expr);
+                let mut r = HashMap::new();
+                for e in f.iter() {
+                    let s = self.store.get_str(*e.0).to_vec().into_boxed_slice();
+                    let val = self.get_value((e.1).1)?;
+                    r.insert(s, val);
+                }
+                Value::Set(r)
+            }
+            _ => {
+                return self.error(
+                    eid,
+                    ErrorType::UnexpectedExprType(
+                        &[
+                            ExprKind::Number,
+                            ExprKind::Bool,
+                            ExprKind::Null,
+                            ExprKind::String,
+                            ExprKind::List,
+                            ExprKind::Set,
+                        ],
+                        expr.kind(),
+                    ),
+                );
+            }
+        };
+        Ok(val)
     }
 }

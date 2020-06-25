@@ -2,7 +2,7 @@ use crate::types::{
     op::Op,
     span::{Span, Spanned},
     store::Store,
-    tree::{ExprId, SExpr, Value},
+    tree::{ExprId, ExprType, SExpr},
 };
 
 /// A stack for combining a stream of expressions and operators to a single expression
@@ -95,24 +95,24 @@ impl Stack {
         let op = self.op.pop().unwrap();
         let right = self.expr.pop().unwrap();
         let left = self.expr.pop().unwrap();
-        let expr: fn(ExprId, ExprId) -> Value = match op {
-            Op::Impl => Value::Impl,
-            Op::Or => Value::Or,
-            Op::And => Value::And,
-            Op::Le => Value::Le,
-            Op::Ge => Value::Ge,
-            Op::Lt => Value::Lt,
-            Op::Gt => Value::Gt,
-            Op::Eq => Value::Eq,
-            Op::Ne => Value::Ne,
-            Op::Overlay => Value::Overlay,
-            Op::Add => Value::Add,
-            Op::Sub => Value::Sub,
-            Op::Mul => Value::Mul,
-            Op::Div => Value::Div,
-            Op::Mod => Value::Mod,
-            Op::Concat => Value::Concat,
-            Op::Apl => Value::Apl,
+        let expr: fn(ExprId, ExprId) -> ExprType = match op {
+            Op::Impl => ExprType::Impl,
+            Op::Or => ExprType::Or,
+            Op::And => ExprType::And,
+            Op::Le => ExprType::Le,
+            Op::Ge => ExprType::Ge,
+            Op::Lt => ExprType::Lt,
+            Op::Gt => ExprType::Gt,
+            Op::Eq => ExprType::Eq,
+            Op::Ne => ExprType::Ne,
+            Op::Overlay => ExprType::Overlay,
+            Op::Add => ExprType::Add,
+            Op::Sub => ExprType::Sub,
+            Op::Mul => ExprType::Mul,
+            Op::Div => ExprType::Div,
+            Op::Mod => ExprType::Mod,
+            Op::Concat => ExprType::Concat,
+            Op::Apl => ExprType::Apl,
 
             // these are not handled via the stack but directly in the parser
             Op::Select | Op::Test => unreachable!(),
@@ -121,17 +121,16 @@ impl Stack {
             Op::Not(..) | Op::UnMin(..) => unreachable!(),
         };
         let span = Span::new(left.span.lo, right.span.hi);
-        let expr =
-            Spanned::new(span, store.add_expr(span, expr(left.val, right.val)));
+        let expr = Spanned::new(span, store.add_expr(span, expr(left.val, right.val)));
         self.expr.push(expr)
     }
 
     fn combine_unary(&mut self, store: &mut Store) {
         let op = self.op.pop().unwrap();
         let arg = self.expr.pop().unwrap();
-        let (lo, expr): (_, fn(ExprId) -> Value) = match op {
-            Op::Not(lo) => (lo, Value::Not),
-            Op::UnMin(lo) => (lo, Value::Neg),
+        let (lo, expr): (_, fn(ExprId) -> ExprType) = match op {
+            Op::Not(lo) => (lo, ExprType::Not),
+            Op::UnMin(lo) => (lo, ExprType::Neg),
 
             // the rest is handled in combine_binary
             _ => unreachable!(),

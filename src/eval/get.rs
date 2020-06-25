@@ -1,34 +1,26 @@
 use crate::types::{
     result::Result,
     store::StrId,
-    tree::{ExprId, FnType, Selector, Value, ValueType},
+    tree::{ExprId, ExprKind, ExprType, FnType},
 };
 use std::rc::Rc;
 
-use crate::{types::diagnostic::ErrorType, Fields, Elang};
-use std::collections::HashMap;
+use crate::{
+    types::{diagnostic::ErrorType, result::ResultUtil},
+    Elang, ErrorContext, Fields,
+};
 use num_rational::BigRational;
 use num_traits::ToPrimitive;
 
 impl Elang {
-    /// Forces the expression and tries to interpret the created datatype expression as a
-    /// boolean.
-    ///
-    /// [argument, span]
-    /// The span of the expression.
-    ///
-    /// = Remarks
-    ///
-    /// If the datatype expression is not a boolean, an error message is printed and an
-    /// error is returned.
     pub(crate) fn get_bool_(&mut self, expr: ExprId) -> Result<bool> {
         let res = self.resolve_(expr)?;
         let val = res.val.borrow();
         match *val {
-            Value::Bool(b) => Ok(b),
+            ExprType::Bool(b) => Ok(b),
             _ => self.error(
                 expr,
-                ErrorType::UnexpectedExpr(&[ValueType::Bool], val.ty()),
+                ErrorType::UnexpectedExprType(&[ExprKind::Bool], val.kind()),
             ),
         }
     }
@@ -37,160 +29,80 @@ impl Elang {
         let res = self.resolve_(expr)?;
         let val = res.val.borrow();
         match *val {
-            Value::String(s) => Ok(s),
+            ExprType::String(s) => Ok(s),
             _ => self.error(
                 expr,
-                ErrorType::UnexpectedExpr(&[ValueType::String], val.ty()),
+                ErrorType::UnexpectedExprType(&[ExprKind::String], val.kind()),
             ),
         }
     }
 
-    /// Forces the expression and tries to interpret the created datatype expression as an
-    /// integer.
-    ///
-    /// [argument, span]
-    /// The span of the expression.
-    ///
-    /// = Remarks
-    ///
-    /// If the datatype expression is not an integer, an error message is printed and an
-    /// error is returned.
     pub(crate) fn get_int_(&mut self, expr: ExprId) -> Result<Rc<BigRational>> {
         let res = self.resolve_(expr)?;
         let val = res.val.borrow();
         match *val {
-            Value::Number(ref i) => Ok(i.clone()),
+            ExprType::Number(ref i) => Ok(i.clone()),
             _ => self.error(
                 expr,
-                ErrorType::UnexpectedExpr(&[ValueType::Number], val.ty()),
+                ErrorType::UnexpectedExprType(&[ExprKind::Number], val.kind()),
             ),
         }
     }
 
-    /// Forces the expression and tries to interpret the created datatype expression as a
-    /// list.
-    ///
-    /// [argument, span]
-    /// The span of the expression.
-    ///
-    /// = Remarks
-    ///
-    /// If the datatype expression is not a list, an error message is printed and an error
-    /// is returned.
     pub(crate) fn get_list_(&mut self, expr: ExprId) -> Result<Rc<[ExprId]>> {
         let res = self.resolve_(expr)?;
         let val = res.val.borrow();
         match *val {
-            Value::List(ref l) => Ok(l.clone()),
-            Value::Null => Ok(Rc::from(vec![].into_boxed_slice())),
+            ExprType::List(ref l) => Ok(l.clone()),
             _ => self.error(
                 expr,
-                ErrorType::UnexpectedExpr(&[ValueType::List], val.ty()),
+                ErrorType::UnexpectedExprType(&[ExprKind::List], val.kind()),
             ),
         }
-    }
-
-    /// Forces the expression, tries to interpret the created datatype expression as a
-    /// set, or overlay, and tries to retrieve a field.
-    ///
-    /// [argument, name]
-    /// The name of the field to retrieve.
-    ///
-    /// [argument, span]
-    /// The span of the expression.
-    ///
-    /// = Remarks
-    ///
-    /// If the datatype expression is not a set or an overlay, an error message is printed
-    /// and an error is returned. If the set does not contain the field, `None` is
-    /// returned but no error is printed.
-    pub(crate) fn get_opt_field_(
-        &mut self,
-        expr: ExprId,
-        selector: &Selector,
-        out: Option<&mut Option<Selector>>,
-    ) -> Result<Option<ExprId>> {
-        // Note: If we wanted to force the field in this function, we
-        // would first have to drop the borrow since the field might refer
-        // to this set. For example
-        //
-        // ----
-        // let
-        //     a = { x = a.y, y = 0 };
-        // in
-        //     a.x
-        // ----
-
-        let sel = match *selector {
-            Selector::Expr(e) => {
-                let expr = self.resolve_(e)?;
-                let res = expr.val.borrow();
-                match *res {
-                    Value::String(s) => Selector::Ident(s),
-                    Value::Number(ref i) => Selector::Number(i.clone()),
-                    _ => {
-                        return self.error(
-                            e,
-                            ErrorType::UnexpectedExpr(
-                                &[ValueType::Number, ValueType::String],
-                                res.ty(),
-                            ),
-                        )
-                    }
-                }
-            }
-            _ => selector.clone(),
-        };
-
-        self.get_field_(expr, &sel, out)
     }
 
     pub(crate) fn get_field_int(
         &mut self,
         expr: ExprId,
-        selector: &Selector,
-        out: Option<&mut Selector>,
+        selector: ExprId,
     ) -> Result<ExprId> {
-        let mut eval_sel = None;
-        let field = self.get_opt_field_(expr, selector, Some(&mut eval_sel))?;
+        let field = self.get_opt_field_(expr, selector)?;
 
         if let Some(f) = field {
             return Ok(f);
         }
 
-        let eval_sel = eval_sel.unwrap();
-
-        let _ = out.map(|o| *o = eval_sel.clone());
+        let sel = self.resolve_(selector).unwrap();
+        let sel = sel.val.borrow();
 
         self.error(
             expr,
-            match eval_sel {
-                Selector::Ident(i) => ErrorType::MissingSetField(i),
-                Selector::Number(i) => ErrorType::MissingListField(i),
+            match *sel {
+                ExprType::Ident(i) => ErrorType::MissingSetField(i),
+                ExprType::Number(ref i) => ErrorType::MissingListField(i.clone()),
                 _ => unreachable!(),
             },
         )
     }
 
-    /// Like `get_field` but expects the selector to not be in expression form.
-    fn get_field_(
+    pub(crate) fn get_opt_field_(
         &mut self,
-        expr: ExprId,
-        sel: &Selector,
-        out: Option<&mut Option<Selector>>,
+        base_: ExprId,
+        sel_: ExprId,
     ) -> Result<Option<ExprId>> {
-        let res = self.resolve_(expr)?;
-        let val = res.val.borrow();
+        let base = self.resolve_(base_)?;
+        let sel = self.resolve_(sel_)?;
+        let base_val = base.val.borrow();
+        let sel_val = sel.val.borrow();
 
-        match (&*val, sel) {
-            (&Value::Set(ref fields, _), &Selector::Ident(name)) => {
+        match (&*base_val, &*sel_val) {
+            (ExprType::Set(ref fields, _), ExprType::String(name)) => {
                 if let Some(&(_, val)) = fields.get(&name) {
                     return Ok(Some(val));
                 }
-                let _ = out.map(|o| *o = Some(Selector::Ident(name)));
                 Ok(None)
             }
-            (&Value::List(ref fields), &Selector::Number(ref i)) => {
+            (ExprType::List(ref fields), ExprType::Number(ref i)) => {
                 if i.is_integer() {
                     if let Some(i) = i.to_integer().to_usize() {
                         if i < fields.len() {
@@ -198,60 +110,64 @@ impl Elang {
                         }
                     }
                 }
-                let _ = out.map(|o| *o = Some(Selector::Number(i.clone())));
                 Ok(None)
             }
-            (&Value::Null, _) => Ok(None),
-            _ => self.error(
-                expr,
-                if let Selector::Ident(..) = sel {
-                    ErrorType::UnexpectedExpr(&[ValueType::Set], val.ty())
-                } else {
-                    ErrorType::UnexpectedExpr(&[ValueType::List], val.ty())
-                },
-            ),
+            _ => {
+                match *sel_val {
+                    ExprType::String(..) | ExprType::Number(..) => {}
+                    _ => {
+                        return self.error(
+                            sel_,
+                            ErrorType::UnexpectedExprType(
+                                &[ExprKind::String, ExprKind::Number],
+                                sel_val.kind(),
+                            ),
+                        );
+                    }
+                }
+                let (et, ot) = match *base_val {
+                    ExprType::Set(..) => (&[ExprKind::String], ExprKind::Set),
+                    ExprType::List(..) => (&[ExprKind::Number], ExprKind::List),
+                    _ => {
+                        return self.error(
+                            base_,
+                            ErrorType::UnexpectedExprType(
+                                &[ExprKind::Set, ExprKind::List],
+                                base_val.kind(),
+                            ),
+                        )
+                    }
+                };
+                self.error(sel_, ErrorType::UnexpectedExprType(et, sel_val.kind()))
+                    .ctx(ErrorContext::EvalOtherExprType(base_, ot))
+            }
         }
     }
 
-    /// Forces the expression, tries to interpret the created datatype expression as a
-    /// set, and returns all of its fields.
-    ///
-    /// [argument, span]
-    /// The span of the expression.
-    ///
-    /// = Remarks
-    ///
-    /// If the datatype expression is not a set, an error message is printed and an error
-    /// is returned.
     pub(crate) fn get_fields_(&mut self, expr: ExprId) -> Result<Fields> {
         let res = self.resolve_(expr)?;
         let val = res.val.borrow();
         match *val {
-            Value::Set(ref fields, _) => Ok(fields.clone()),
-            Value::Null => Ok(Rc::new(HashMap::new())),
+            ExprType::Set(ref fields, _) => Ok(fields.clone()),
             _ => self.error(
                 expr,
-                ErrorType::UnexpectedExpr(&[ValueType::Set, ValueType::Null], val.ty()),
+                ErrorType::UnexpectedExprType(
+                    &[ExprKind::Set, ExprKind::Null],
+                    val.kind(),
+                ),
             ),
         }
     }
 
-    /// Forces the expression, tries to interpret the created datatype expression as a
-    /// function, and returns its pattern and body.
-    ///
-    /// [argument, span]
-    /// The span of the expression.
-    ///
-    /// = Remarks
-    ///
-    /// If the datatype expression is not a function, an error message is printed and an
-    /// error is returned.
     pub(crate) fn get_func(&mut self, expr: ExprId) -> Result<FnType> {
         let res = self.resolve_(expr)?;
         let val = res.val.borrow();
         match *val {
-            Value::Fn(ref f) => Ok(f.clone()),
-            _ => self.error(expr, ErrorType::UnexpectedExpr(&[ValueType::Fn], val.ty())),
+            ExprType::Fn(ref f) => Ok(f.clone()),
+            _ => self.error(
+                expr,
+                ErrorType::UnexpectedExprType(&[ExprKind::Fn], val.kind()),
+            ),
         }
     }
 
@@ -259,22 +175,10 @@ impl Elang {
         let e = self.store.get_expr(expr);
         let val = e.val.borrow();
         match *val {
-            Value::Path(ref f) => Ok(f.clone()),
+            ExprType::Path(ref f) => Ok(f.clone()),
             _ => self.error(
                 expr,
-                ErrorType::UnexpectedExpr(&[ValueType::Path], val.ty()),
-            ),
-        }
-    }
-
-    pub(crate) fn get_selector(&mut self, expr: ExprId) -> Result<Selector> {
-        let e = self.store.get_expr(expr);
-        let val = e.val.borrow();
-        match *val {
-            Value::Selector(ref s) => Ok(s.clone()),
-            _ => self.error(
-                expr,
-                ErrorType::UnexpectedExpr(&[ValueType::Selector], val.ty()),
+                ErrorType::UnexpectedExprType(&[ExprKind::Path], val.kind()),
             ),
         }
     }

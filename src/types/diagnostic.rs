@@ -1,10 +1,9 @@
 use crate::{
-    types::{span::Span, store::StrId, token::TokenType, tree::ValueType},
+    types::{span::Span, store::StrId, token::TokenType, tree::ExprKind},
     ExprId,
 };
-use std::fmt::Debug;
-use std::rc::Rc;
 use num_rational::BigRational;
+use std::{fmt::Debug, rc::Rc};
 
 #[derive(Debug)]
 pub struct Error {
@@ -45,6 +44,7 @@ pub enum ErrorContext {
     EvalStringify(ExprId),
     EvalApl(ExprId),
     EvalSelect(ExprId),
+    EvalOtherExprType(ExprId, ExprKind),
 }
 
 #[derive(Clone, Debug)]
@@ -60,17 +60,17 @@ pub enum ErrorType {
     InvalidCodePoint(u32),
     UnknownEscapeSequence(u8),
     DuplicateIdentifier(StrId, Span),
-    UnexpectedExpr(&'static [ValueType], ValueType),
+    UnexpectedExprType(&'static [ExprKind], ExprKind),
+    CannotStringifyNonInteger,
     MissingSetField(StrId),
     MissingListField(Rc<BigRational>),
     InfiniteRecursion(ExprId),
-    CannotForceExpr(ValueType),
+    CannotForceExpr(ExprKind),
     DivideByZero,
     ExtraArgument(StrId, Span),
     MissingArgument(StrId, Span),
     MissingNewline,
     SpanOverflow,
-    Overflow,
     AssertionFailed,
     Custom(Rc<dyn std::error::Error + 'static>),
 }

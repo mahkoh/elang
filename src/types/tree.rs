@@ -6,6 +6,7 @@ use crate::{
     },
     Elang,
 };
+use num_rational::BigRational;
 use std::{
     cell::RefCell,
     collections::HashMap,
@@ -14,7 +15,6 @@ use std::{
     hash::Hash,
     rc::Rc,
 };
-use num_rational::BigRational;
 
 /// An expression with an associated span.
 pub type SExpr = Spanned<ExprId>;
@@ -35,14 +35,14 @@ pub struct ExprId {
 pub struct Expr {
     pub(crate) id: ExprId,
     pub(crate) span: Span,
-    pub(crate) val: RefCell<Value>,
+    pub(crate) val: RefCell<ExprType>,
 }
 
 impl Expr {
     /// Returns whether this is a inherit expression.
     pub(crate) fn is_inherit(&self) -> bool {
         match *self.val.borrow() {
-            Value::Inherit => true,
+            ExprType::Inherit => true,
             _ => false,
         }
     }
@@ -55,7 +55,7 @@ impl Expr {
         self.span
     }
 
-    pub fn value(&self) -> &RefCell<Value> {
+    pub fn value(&self) -> &RefCell<ExprType> {
         &self.val
     }
 }
@@ -64,7 +64,7 @@ impl Expr {
 ///
 /// In the field documentation, `e1`, `e2`, and `e3` denote expressions.
 #[derive(Clone, Debug)]
-pub enum Value {
+pub enum ExprType {
     /// `e1 + e2`
     Add(ExprId, ExprId),
     /// `e1 && e2`
@@ -95,8 +95,6 @@ pub enum Value {
     ///
     /// This only appears in the fields of a set
     Inherit,
-    /// A number
-    Number(Rc<BigRational>),
     /// `e1 <= e2`
     Le(ExprId, ExprId),
     /// `let fields in e1`
@@ -117,13 +115,13 @@ pub enum Value {
     Not(ExprId),
     /// `null`
     Null,
+    /// A number
+    Number(Rc<BigRational>),
     /// `e1 || e2`
     Or(ExprId, ExprId),
     /// `e1 \\ e2`
     Overlay(ExprId, ExprId),
     /// `e1.e2.e3`
-    ///
-    /// Each element is a `Value::Selector`.
     Path(Rc<[ExprId]>),
     /// A reference to another expression
     Resolved(Option<StrId>, ExprId),
@@ -131,16 +129,14 @@ pub enum Value {
     ///
     /// `e2` is a `Value::Path`.
     Select(ExprId, ExprId, Option<ExprId>),
-    /// A Selector of a field
-    Selector(Selector),
     /// `rec { i = e1 }`
     ///
     /// The boolean is true iff the set is recursive
     Set(Fields, bool),
-    /// `"\{e1}"`
-    Stringify(ExprId),
     /// A string
     String(StrId),
+    /// `"\{e1}"`
+    Stringify(ExprId),
     /// `e1 - e2`
     Sub(ExprId, ExprId),
     /// `e1 ? e2`
@@ -151,127 +147,167 @@ pub enum Value {
 
 /// The type of a value of an expression
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum ValueType {
+pub enum ExprKind {
+    /// `e1 + e2`
     Add,
+    /// `e1 && e2`
     And,
+    /// `e1 e2`
     Apl,
+    /// A boolean
     Bool,
+    /// `e1 ++ e2`
     Concat,
+    /// `if e1 then e2 else e3`
     Cond,
+    /// `e1 / e2`
     Div,
+    /// `e1 == e2`
     Eq,
+    /// A function
     Fn,
+    /// `e1 >= e2`
     Ge,
+    /// `e1 > e2`
     Gt,
+    /// An identifier
     Ident,
+    /// `e1 -> e2`
     Impl,
+    /// `inherit`
+    ///
+    /// This only appears in the fields of a set
     Inherit,
+    /// `e1 <= e2`
     Le,
+    /// `let fields in e1`
     Let,
+    /// `[e1, e2, e3]`
     List,
+    /// `e1 < e2`
     Lt,
+    /// `e1 % e2`
     Mod,
+    /// `e1 * e2`
     Mul,
+    /// `e1 != e2`
     Ne,
+    /// `-e1`
     Neg,
+    /// `!e1`
     Not,
+    /// `null`
     Null,
+    /// A number
     Number,
+    /// `e1 || e2`
     Or,
+    /// `e1 \\ e2`
     Overlay,
+    /// `e1.e2.e3`
     Path,
+    /// A reference to another expression
     Resolved,
+    /// `e1.e2 or e3`
+    ///
+    /// `e2` is a `Value::Path`.
     Select,
-    Selector,
+    /// `rec { i = e1 }`
+    ///
+    /// The boolean is true iff the set is recursive
     Set,
+    /// A string
     String,
+    /// `"\{e1}"`
     Stringify,
+    /// `e1 - e2`
     Sub,
+    /// `e1 ? e2`
+    ///
+    /// `e2` is a `Value::Path`
     Test,
 }
 
-impl ValueType {
+impl ExprKind {
     pub fn as_str(self) -> &'static str {
         match self {
-            ValueType::Inherit => "inherit",
-            ValueType::String => "string",
-            ValueType::Number => "integer",
-            ValueType::Ident => "ident",
-            ValueType::Set => "set",
-            ValueType::And => "and",
-            ValueType::Or => "or",
-            ValueType::Not => "not",
-            ValueType::Add => "add",
-            ValueType::Sub => "sub",
-            ValueType::Mul => "mul",
-            ValueType::Div => "div",
-            ValueType::Mod => "mod",
-            ValueType::Gt => "gt",
-            ValueType::Lt => "lt",
-            ValueType::Ge => "ge",
-            ValueType::Le => "le",
-            ValueType::Eq => "eq",
-            ValueType::Ne => "ne",
-            ValueType::Impl => "imlp",
-            ValueType::Overlay => "overlay",
-            ValueType::Concat => "concat",
-            ValueType::Apl => "apl",
-            ValueType::Neg => "neg",
-            ValueType::Cond => "cond",
-            ValueType::Bool => "bool",
-            ValueType::Null => "null",
-            ValueType::Test => "test",
-            ValueType::Select => "select",
-            ValueType::List => "list",
-            ValueType::Let => "let",
-            ValueType::Fn => "fn",
-            ValueType::Stringify => "stringify",
-            ValueType::Path => "path",
-            ValueType::Selector => "selector",
-            ValueType::Resolved => "resolved",
+            ExprKind::Inherit => "inherit",
+            ExprKind::String => "string",
+            ExprKind::Number => "number",
+            ExprKind::Ident => "ident",
+            ExprKind::Set => "set",
+            ExprKind::And => "and",
+            ExprKind::Or => "or",
+            ExprKind::Not => "not",
+            ExprKind::Add => "add",
+            ExprKind::Sub => "sub",
+            ExprKind::Mul => "mul",
+            ExprKind::Div => "div",
+            ExprKind::Mod => "mod",
+            ExprKind::Gt => "gt",
+            ExprKind::Lt => "lt",
+            ExprKind::Ge => "ge",
+            ExprKind::Le => "le",
+            ExprKind::Eq => "eq",
+            ExprKind::Ne => "ne",
+            ExprKind::Impl => "imlp",
+            ExprKind::Overlay => "overlay",
+            ExprKind::Concat => "concat",
+            ExprKind::Apl => "apl",
+            ExprKind::Neg => "neg",
+            ExprKind::Cond => "cond",
+            ExprKind::Bool => "bool",
+            ExprKind::Null => "null",
+            ExprKind::Test => "test",
+            ExprKind::Select => "select",
+            ExprKind::List => "list",
+            ExprKind::Let => "let",
+            ExprKind::Fn => "fn",
+            ExprKind::Stringify => "stringify",
+            ExprKind::Path => "path",
+            ExprKind::Resolved => "resolved",
         }
     }
 }
 
-impl Value {
-    pub fn ty(&self) -> ValueType {
+impl ExprType {
+    pub fn kind(&self) -> ExprKind {
         match *self {
-            Value::Add(..) => ValueType::Add,
-            Value::And(..) => ValueType::And,
-            Value::Apl(..) => ValueType::Apl,
-            Value::Bool(..) => ValueType::Bool,
-            Value::Concat(..) => ValueType::Concat,
-            Value::Cond(..) => ValueType::Cond,
-            Value::Div(..) => ValueType::Div,
-            Value::Eq(..) => ValueType::Eq,
-            Value::Fn(..) => ValueType::Fn,
-            Value::Ge(..) => ValueType::Ge,
-            Value::Gt(..) => ValueType::Gt,
-            Value::Ident(..) => ValueType::Ident,
-            Value::Impl(..) => ValueType::Impl,
-            Value::Inherit => ValueType::Inherit,
-            Value::Number(..) => ValueType::Number,
-            Value::Le(..) => ValueType::Le,
-            Value::Let(..) => ValueType::Let,
-            Value::List(..) => ValueType::List,
-            Value::Lt(..) => ValueType::Lt,
-            Value::Mod(..) => ValueType::Mod,
-            Value::Mul(..) => ValueType::Mul,
-            Value::Ne(..) => ValueType::Ne,
-            Value::Neg(..) => ValueType::Neg,
-            Value::Not(..) => ValueType::Not,
-            Value::Null => ValueType::Null,
-            Value::Or(..) => ValueType::Or,
-            Value::Overlay(..) => ValueType::Overlay,
-            Value::Path(..) => ValueType::Path,
-            Value::Resolved(..) => ValueType::Resolved,
-            Value::Select(..) => ValueType::Select,
-            Value::Selector(..) => ValueType::Selector,
-            Value::Set(..) => ValueType::Set,
-            Value::Stringify(..) => ValueType::Stringify,
-            Value::String(..) => ValueType::String,
-            Value::Sub(..) => ValueType::Sub,
-            Value::Test(..) => ValueType::Test,
+            ExprType::Add(..) => ExprKind::Add,
+            ExprType::And(..) => ExprKind::And,
+            ExprType::Apl(..) => ExprKind::Apl,
+            ExprType::Bool(..) => ExprKind::Bool,
+            ExprType::Concat(..) => ExprKind::Concat,
+            ExprType::Cond(..) => ExprKind::Cond,
+            ExprType::Div(..) => ExprKind::Div,
+            ExprType::Eq(..) => ExprKind::Eq,
+            ExprType::Fn(..) => ExprKind::Fn,
+            ExprType::Ge(..) => ExprKind::Ge,
+            ExprType::Gt(..) => ExprKind::Gt,
+            ExprType::Ident(..) => ExprKind::Ident,
+            ExprType::Impl(..) => ExprKind::Impl,
+            ExprType::Inherit => ExprKind::Inherit,
+            ExprType::Number(..) => ExprKind::Number,
+            ExprType::Le(..) => ExprKind::Le,
+            ExprType::Let(..) => ExprKind::Let,
+            ExprType::List(..) => ExprKind::List,
+            ExprType::Lt(..) => ExprKind::Lt,
+            ExprType::Mod(..) => ExprKind::Mod,
+            ExprType::Mul(..) => ExprKind::Mul,
+            ExprType::Ne(..) => ExprKind::Ne,
+            ExprType::Neg(..) => ExprKind::Neg,
+            ExprType::Not(..) => ExprKind::Not,
+            ExprType::Null => ExprKind::Null,
+            ExprType::Or(..) => ExprKind::Or,
+            ExprType::Overlay(..) => ExprKind::Overlay,
+            ExprType::Path(..) => ExprKind::Path,
+            ExprType::Resolved(..) => ExprKind::Resolved,
+            ExprType::Select(..) => ExprKind::Select,
+            ExprType::Set(..) => ExprKind::Set,
+            ExprType::Stringify(..) => ExprKind::Stringify,
+            ExprType::String(..) => ExprKind::String,
+            ExprType::Sub(..) => ExprKind::Sub,
+            ExprType::Test(..) => ExprKind::Test,
         }
     }
 }
@@ -288,22 +324,15 @@ pub enum FnArg {
     ),
 }
 
-#[derive(Clone, Debug)]
-pub enum Selector {
-    Ident(StrId),
-    Number(Rc<BigRational>),
-    Expr(ExprId),
-}
-
 pub trait BuiltInFn {
-    fn apply(&self, elang: &mut Elang, expr: Rc<Expr>) -> Result<Value>;
+    fn apply(&self, elang: &mut Elang, expr: Rc<Expr>) -> Result<ExprType>;
 }
 
 impl<T> BuiltInFn for T
 where
-    T: Fn(&mut Elang, Rc<Expr>) -> Result<Value>,
+    T: Fn(&mut Elang, Rc<Expr>) -> Result<ExprType>,
 {
-    fn apply(&self, elang: &mut Elang, expr: Rc<Expr>) -> Result<Value> {
+    fn apply(&self, elang: &mut Elang, expr: Rc<Expr>) -> Result<ExprType> {
         self(elang, expr)
     }
 }

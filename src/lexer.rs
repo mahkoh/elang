@@ -465,9 +465,15 @@ impl<'a, 'b> Lexer<'a, 'b> {
             };
             len += 1;
             self.chars.skip(1);
-            val = match val.checked_shl(4).and_then(|val| val.checked_add(next as u32)) {
+            val = match val
+                .checked_shl(4)
+                .and_then(|val| val.checked_add(next as u32))
+            {
                 Some(val) => val,
-                _ => return self.error(Span::new(before, pos), ErrorType::OutOfBoundsLiteral),
+                _ => {
+                    return self
+                        .error(Span::new(before, pos), ErrorType::OutOfBoundsLiteral)
+                }
             }
         }
         if len == 0 {
@@ -480,16 +486,14 @@ impl<'a, 'b> Lexer<'a, 'b> {
         let _ = self.next_right_brace()?;
         match std::char::from_u32(val) {
             Some(c) => Ok(c),
-            _ => {
-                self.error(Span::new(before, after), ErrorType::InvalidCodePoint(val))
-            }
+            _ => self.error(Span::new(before, after), ErrorType::InvalidCodePoint(val)),
         }
     }
 
     fn number(&mut self) -> Result<SToken> {
         let mut saw_dot = false;
         let mut post_dot_places = 0;
-        let mut res = vec!();
+        let mut res = vec![];
         let mut base = 10;
         let (start, first) = self.chars.peek(0).unwrap();
         if first == b'0' {
@@ -497,7 +501,7 @@ impl<'a, 'b> Lexer<'a, 'b> {
                 Some((_, b'b')) => base = 2,
                 Some((_, b'o')) => base = 8,
                 Some((_, b'x')) => base = 16,
-                _ => { },
+                _ => {}
             }
             if base != 10 {
                 self.chars.skip(2);
@@ -537,15 +541,12 @@ impl<'a, 'b> Lexer<'a, 'b> {
         }
         let span = Span::new(start, self.pos());
         if res.is_empty() {
-            return self.error(
-                span,
-                ErrorType::EmptyNumberLiteral,
-            )
+            return self.error(span, ErrorType::EmptyNumberLiteral);
         }
         let value = self.store.add_str(res.into_boxed_slice().into());
         Ok(Spanned::new(
             span,
-            Token::Number(value, base, post_dot_places)
+            Token::Number(value, base, post_dot_places),
         ))
     }
 

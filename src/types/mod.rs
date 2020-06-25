@@ -7,3 +7,4 @@ pub mod stack;
 pub mod store;
 pub mod token;
 pub mod tree;
+pub mod value;
