@@ -14,6 +14,7 @@ use std::{
     hash::Hash,
     rc::Rc,
 };
+use num_rational::BigRational;
 
 /// An expression with an associated span.
 pub type SExpr = Spanned<ExprId>;
@@ -94,8 +95,8 @@ pub enum Value {
     ///
     /// This only appears in the fields of a set
     Inherit,
-    /// An integer
-    Integer(i64),
+    /// A number
+    Number(Rc<BigRational>),
     /// `e1 <= e2`
     Le(ExprId, ExprId),
     /// `let fields in e1`
@@ -165,7 +166,6 @@ pub enum ValueType {
     Ident,
     Impl,
     Inherit,
-    Integer,
     Le,
     Let,
     List,
@@ -176,6 +176,7 @@ pub enum ValueType {
     Neg,
     Not,
     Null,
+    Number,
     Or,
     Overlay,
     Path,
@@ -183,8 +184,8 @@ pub enum ValueType {
     Select,
     Selector,
     Set,
-    Stringify,
     String,
+    Stringify,
     Sub,
     Test,
 }
@@ -194,7 +195,7 @@ impl ValueType {
         match self {
             ValueType::Inherit => "inherit",
             ValueType::String => "string",
-            ValueType::Integer => "integer",
+            ValueType::Number => "integer",
             ValueType::Ident => "ident",
             ValueType::Set => "set",
             ValueType::And => "and",
@@ -249,7 +250,7 @@ impl Value {
             Value::Ident(..) => ValueType::Ident,
             Value::Impl(..) => ValueType::Impl,
             Value::Inherit => ValueType::Inherit,
-            Value::Integer(..) => ValueType::Integer,
+            Value::Number(..) => ValueType::Number,
             Value::Le(..) => ValueType::Le,
             Value::Let(..) => ValueType::Let,
             Value::List(..) => ValueType::List,
@@ -273,61 +274,6 @@ impl Value {
             Value::Test(..) => ValueType::Test,
         }
     }
-
-    pub fn debug<'a>(&'a self, e: &'a Elang) -> ExprDebug<'a> {
-        ExprDebug { expr: self, e }
-    }
-}
-
-pub struct ExprDebug<'a> {
-    expr: &'a Value,
-    e: &'a Elang,
-}
-
-impl<'a> Debug for ExprDebug<'a> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let s = match self.expr {
-            Value::Inherit => "Inherit",
-            Value::String(..) => "String",
-            Value::Integer(..) => "Integer",
-            Value::Ident(..) => "Ident",
-            Value::Set(..) => "Set",
-            Value::And(..) => "And",
-            Value::Or(..) => "Or",
-            Value::Not(..) => "Not",
-            Value::Add(..) => "Add",
-            Value::Sub(..) => "Sub",
-            Value::Mul(..) => "Mul",
-            Value::Div(..) => "Div",
-            Value::Mod(..) => "Mod",
-            Value::Gt(..) => "Gt",
-            Value::Lt(..) => "Lt",
-            Value::Ge(..) => "Ge",
-            Value::Le(..) => "Le",
-            Value::Eq(..) => "Eq",
-            Value::Ne(..) => "Ne",
-            Value::Impl(..) => "Imlp",
-            Value::Overlay(..) => "Overlay",
-            Value::Concat(..) => "Concat",
-            Value::Apl(..) => "Apl",
-            Value::Neg(..) => "Neg",
-            Value::Cond(..) => "Cond",
-            Value::Bool(..) => "Bool",
-            Value::Null => "Null",
-            Value::Test(..) => "Test",
-            Value::Select(..) => "Select",
-            Value::List(..) => "List",
-            Value::Let(..) => "Let",
-            Value::Fn(..) => "Fn",
-            Value::Stringify(..) => "Stringify",
-            Value::Path(..) => "Path",
-            Value::Selector(..) => "Selector",
-            Value::Resolved(_, e) => {
-                return self.e.get_expr(*e).val.borrow().debug(self.e).fmt(f)
-            }
-        };
-        write!(f, "{}", s)
-    }
 }
 
 pub type Fields = Rc<HashMap<StrId, (Span, ExprId)>>;
@@ -342,10 +288,10 @@ pub enum FnArg {
     ),
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub enum Selector {
     Ident(StrId),
-    Integer(usize),
+    Number(Rc<BigRational>),
     Expr(ExprId),
 }
 

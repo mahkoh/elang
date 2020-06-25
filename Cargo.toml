@@ -4,5 +4,10 @@ version = "0.1.0"
 authors = ["Julian Orth <ju.orth@gmail.com>"]
 edition = "2018"
 
+[dependencies]
+num-rational = "0.3"
+num-bigint = "0.3"
+num-traits = "0.2"
+
 [dev-dependencies]
 serde_json = "1.0.55"

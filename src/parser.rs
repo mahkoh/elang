@@ -15,6 +15,8 @@ use std::{
     collections::{hash_map::Entry, HashMap},
     rc::Rc,
 };
+use num_rational::BigRational;
+use num_bigint::BigInt;
 
 /// An expression parser.
 pub struct Parser<'a, 'b> {
@@ -247,7 +249,7 @@ impl<'a, 'b> Parser<'a, 'b> {
         }
 
         match token.val {
-            Token::Integer(..)
+            Token::Number(..)
             | Token::Ident(..)
             | Token::True
             | Token::False
@@ -308,16 +310,21 @@ impl<'a, 'b> Parser<'a, 'b> {
         Ok(expr)
     }
 
+    fn parse_number(&mut self, val: StrId, base: u16, shift: u16) -> Rc<BigRational> {
+        let val = self.lexer.store.get_str(val);
+        let numer = BigInt::parse_bytes(&val, base as u32).unwrap();
+        let denom = BigInt::from(base).pow(shift as u32);
+        Rc::new(BigRational::new(numer, denom))
+    }
+
     fn parse_selector(&mut self) -> Result<SExpr> {
         let next = self.lexer.next()?;
         let mut span = next.span;
         let sel = match next.val {
             Token::Ident(i) => Selector::Ident(i),
-            Token::Integer(i) => {
-                if i < 0 || (isize::max_value() as i64) < i {
-                    return self.error(next.span, ErrorType::OutOfBoundsSelector(i));
-                }
-                Selector::Integer(i as usize)
+            Token::Number(val, base, shift) => {
+                let num = self.parse_number(val, base, shift);
+                Selector::Number(num)
             }
             Token::LeftParen => {
                 let expr = self.parse_expr()?;
@@ -330,7 +337,7 @@ impl<'a, 'b> Parser<'a, 'b> {
                     next.span,
                     ErrorType::UnexpectedToken(
                         TokenAlternative::List(&[
-                            TokenType::Integer,
+                            TokenType::Number,
                             TokenType::Ident,
                             TokenType::LeftParen,
                         ]),
@@ -560,7 +567,7 @@ impl<'a, 'b> Parser<'a, 'b> {
     fn parse_simple(&mut self) -> Result<SExpr> {
         let t = self.lexer.next().unwrap();
         let expr = match t.val {
-            Token::Integer(i) => Value::Integer(i),
+            Token::Number(val, base, shift) => Value::Number(self.parse_number(val, base, shift)),
             Token::Ident(i) => Value::Ident(i),
             Token::True => Value::Bool(true),
             Token::False => Value::Bool(false),

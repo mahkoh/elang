@@ -16,7 +16,7 @@ impl Elang {
         let l = l.val.borrow();
         let r = r.val.borrow();
         match (&*l, &*r) {
-            (&Value::Integer(l), &Value::Integer(r)) => Ok(l == r),
+            (&Value::Number(ref l), &Value::Number(ref r)) => Ok(l == r),
             (&Value::String(l), &Value::String(r)) => Ok(l == r),
             (&Value::Null, &Value::Null) => Ok(true),
             _ => Ok(false),
@@ -171,7 +171,7 @@ impl Elang {
             }
             Value::Inherit => Value::Inherit,
             Value::String(s) => Value::String(s),
-            Value::Integer(i) => Value::Integer(i),
+            Value::Number(ref i) => Value::Number(i.clone()),
             Value::Bool(b) => Value::Bool(b),
             Value::Null => Value::Null,
             Value::Resolved(id, dst) => Value::Resolved(id, dst),
@@ -206,11 +206,11 @@ impl Elang {
                 }
                 Value::Path(Rc::from(nsegs.into_boxed_slice()))
             }
-            Value::Selector(s) => {
-                if let Selector::Expr(e) = s {
+            Value::Selector(ref s) => {
+                if let &Selector::Expr(e) = s {
                     Value::Selector(Selector::Expr(copy!(e)))
                 } else {
-                    Value::Selector(s)
+                    Value::Selector(s.clone())
                 }
             }
             Value::Select(target, segs, alt) => {

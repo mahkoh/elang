@@ -4,6 +4,7 @@ use crate::{
 };
 use std::fmt::Debug;
 use std::rc::Rc;
+use num_rational::BigRational;
 
 #[derive(Debug)]
 pub struct Error {
@@ -52,8 +53,8 @@ pub enum ErrorType {
     UnexpectedEndOfInput,
     UnexpectedToken(TokenAlternative, TokenType),
     OutOfBoundsLiteral,
-    OutOfBoundsSelector(i64),
-    UnexpectedIntegerSuffix(u8),
+    UnexpectedNumberSuffix(u8),
+    EmptyNumberLiteral,
     UnexpectedByte(u8),
     MissingCodePoint,
     InvalidCodePoint(u32),
@@ -61,7 +62,7 @@ pub enum ErrorType {
     DuplicateIdentifier(StrId, Span),
     UnexpectedExpr(&'static [ValueType], ValueType),
     MissingSetField(StrId),
-    MissingListField(usize),
+    MissingListField(Rc<BigRational>),
     InfiniteRecursion(ExprId),
     CannotForceExpr(ValueType),
     DivideByZero,

@@ -16,6 +16,7 @@ use crate::{
     lexer::Lexer,
     parser::Parser,
 };
+use num_rational::BigRational;
 
 mod eval;
 mod funcs;
@@ -143,7 +144,7 @@ impl Elang {
         self.get_bool_(expr_id)
     }
 
-    pub fn get_int(&mut self, expr_id: ExprId) -> Result<i64> {
+    pub fn get_int(&mut self, expr_id: ExprId) -> Result<Rc<BigRational>> {
         self.get_int_(expr_id)
     }
 

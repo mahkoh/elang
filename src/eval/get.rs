@@ -7,6 +7,8 @@ use std::rc::Rc;
 
 use crate::{types::diagnostic::ErrorType, Fields, Elang};
 use std::collections::HashMap;
+use num_rational::BigRational;
+use num_traits::ToPrimitive;
 
 impl Elang {
     /// Forces the expression and tries to interpret the created datatype expression as a
@@ -53,14 +55,14 @@ impl Elang {
     ///
     /// If the datatype expression is not an integer, an error message is printed and an
     /// error is returned.
-    pub(crate) fn get_int_(&mut self, expr: ExprId) -> Result<i64> {
+    pub(crate) fn get_int_(&mut self, expr: ExprId) -> Result<Rc<BigRational>> {
         let res = self.resolve_(expr)?;
         let val = res.val.borrow();
         match *val {
-            Value::Integer(i) => Ok(i),
+            Value::Number(ref i) => Ok(i.clone()),
             _ => self.error(
                 expr,
-                ErrorType::UnexpectedExpr(&[ValueType::Integer], val.ty()),
+                ErrorType::UnexpectedExpr(&[ValueType::Number], val.ty()),
             ),
         }
     }
@@ -106,7 +108,7 @@ impl Elang {
         &mut self,
         expr: ExprId,
         selector: &Selector,
-        out: Option<&mut Selector>,
+        out: Option<&mut Option<Selector>>,
     ) -> Result<Option<ExprId>> {
         // Note: If we wanted to force the field in this function, we
         // would first have to drop the borrow since the field might refer
@@ -125,24 +127,19 @@ impl Elang {
                 let res = expr.val.borrow();
                 match *res {
                     Value::String(s) => Selector::Ident(s),
-                    Value::Integer(i) => {
-                        if (isize::max_value() as i64) < i {
-                            return self.error(e, ErrorType::OutOfBoundsSelector(i));
-                        }
-                        Selector::Integer(i as usize)
-                    }
+                    Value::Number(ref i) => Selector::Number(i.clone()),
                     _ => {
                         return self.error(
                             e,
                             ErrorType::UnexpectedExpr(
-                                &[ValueType::Integer, ValueType::String],
+                                &[ValueType::Number, ValueType::String],
                                 res.ty(),
                             ),
                         )
                     }
                 }
             }
-            _ => *selector,
+            _ => selector.clone(),
         };
 
         self.get_field_(expr, &sel, out)
@@ -154,20 +151,22 @@ impl Elang {
         selector: &Selector,
         out: Option<&mut Selector>,
     ) -> Result<ExprId> {
-        let mut eval_sel = Selector::Integer(0);
+        let mut eval_sel = None;
         let field = self.get_opt_field_(expr, selector, Some(&mut eval_sel))?;
 
         if let Some(f) = field {
             return Ok(f);
         }
 
-        let _ = out.map(|o| *o = eval_sel);
+        let eval_sel = eval_sel.unwrap();
+
+        let _ = out.map(|o| *o = eval_sel.clone());
 
         self.error(
             expr,
             match eval_sel {
                 Selector::Ident(i) => ErrorType::MissingSetField(i),
-                Selector::Integer(i) => ErrorType::MissingListField(i),
+                Selector::Number(i) => ErrorType::MissingListField(i),
                 _ => unreachable!(),
             },
         )
@@ -178,7 +177,7 @@ impl Elang {
         &mut self,
         expr: ExprId,
         sel: &Selector,
-        out: Option<&mut Selector>,
+        out: Option<&mut Option<Selector>>,
     ) -> Result<Option<ExprId>> {
         let res = self.resolve_(expr)?;
         let val = res.val.borrow();
@@ -188,16 +187,19 @@ impl Elang {
                 if let Some(&(_, val)) = fields.get(&name) {
                     return Ok(Some(val));
                 }
-                let _ = out.map(|o| *o = Selector::Ident(name));
+                let _ = out.map(|o| *o = Some(Selector::Ident(name)));
                 Ok(None)
             }
-            (&Value::List(ref fields), &Selector::Integer(i)) => {
-                if fields.len() > i {
-                    Ok(Some(fields[i]))
-                } else {
-                    let _ = out.map(|o| *o = Selector::Integer(i));
-                    Ok(None)
+            (&Value::List(ref fields), &Selector::Number(ref i)) => {
+                if i.is_integer() {
+                    if let Some(i) = i.to_integer().to_usize() {
+                        if i < fields.len() {
+                            return Ok(Some(fields[i]));
+                        }
+                    }
                 }
+                let _ = out.map(|o| *o = Some(Selector::Number(i.clone())));
+                Ok(None)
             }
             (&Value::Null, _) => Ok(None),
             _ => self.error(
@@ -269,7 +271,7 @@ impl Elang {
         let e = self.store.get_expr(expr);
         let val = e.val.borrow();
         match *val {
-            Value::Selector(s) => Ok(s),
+            Value::Selector(ref s) => Ok(s.clone()),
             _ => self.error(
                 expr,
                 ErrorType::UnexpectedExpr(&[ValueType::Selector], val.ty()),

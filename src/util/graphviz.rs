@@ -65,7 +65,7 @@ fn print_tree_<W: Write>(
 
     match *val {
         Value::Inherit => write!(w, "{} [shape=\"box\", label=\"Inherit\"];", id),
-        Value::Integer(i) => write!(w, "{} [label=\"{}\"];", id, i),
+        Value::Number(ref i) => write!(w, "{} [label=\"{}\"];", id, i),
         Value::Ident(i) => {
             write!(w, "{} [label=\"", id)?;
             w.write_all(&store.get_str(i))?;
@@ -165,7 +165,7 @@ fn print_tree_<W: Write>(
                 w.write_all(&store.get_str(i))?;
                 write!(w, "\"];")
             }
-            Selector::Integer(i) => write!(w, "{} [label=\"{}\"];", id, i),
+            Selector::Number(ref i) => write!(w, "{} [label=\"{}\"];", id, i),
             Selector::Expr(e) => pt!(e),
         },
         Value::Test(e, path) => {

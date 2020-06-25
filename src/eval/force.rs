@@ -6,6 +6,9 @@ use crate::{types::{
     tree::{Expr, ExprId, FnArg, FnType, Selector, Value, ValueType},
 }, Error, Elang};
 use std::rc::Rc;
+use num_rational::BigRational;
+use num_traits::identities::Zero;
+use std::ops::Neg;
 
 impl Elang {
     /// Forces (evaluates) the expression.
@@ -72,7 +75,7 @@ impl Elang {
         let borrow = expr.val.borrow();
 
         match *borrow {
-            Value::Integer(..)
+            Value::Number(..)
             | Value::Ident(..)
             | Value::Bool(..)
             | Value::Null
@@ -146,19 +149,8 @@ impl Elang {
     fn force_int(&mut self, expr: &Expr) -> Result {
         let ctx = ErrorContext::EvalArithmetic(expr.id);
 
-        macro_rules! c {
-            ($v:expr) => {
-                match $v {
-                    Some(v) => v,
-                    _ => {
-                        return self.error(expr.id, ErrorType::Overflow);
-                    }
-                }
-            };
-        }
-
         let int = |slf: &mut Self, v| match slf.get_int_(v) {
-            Ok(v) => Ok(v),
+            Ok(v) => Ok(v.clone()),
             Err(mut e) => {
                 e.context.push(ctx);
                 Err(e)
@@ -167,31 +159,33 @@ impl Elang {
 
         let new = match *expr.val.borrow() {
             Value::Add(l, r) => {
-                Value::Integer(c!(int(self, l)?.checked_add(int(self, r)?)))
+                Value::Number(Rc::new(&*int(self, l)? + &*int(self, r)?))
             }
             Value::Sub(l, r) => {
-                Value::Integer(c!(int(self, l)?.checked_sub(int(self, r)?)))
+                Value::Number(Rc::new(&*int(self, l)? - &*int(self, r)?))
             }
             Value::Mul(l, r) => {
-                Value::Integer(c!(int(self, l)?.checked_mul(int(self, r)?)))
+                Value::Number(Rc::new(&*int(self, l)? * &*int(self, r)?))
             }
             Value::Div(l, r) => {
                 let l = int(self, l)?;
                 let rn = int(self, r)?;
-                if rn == 0 {
+                if *rn == BigRational::zero() {
                     return self.error(r, ErrorType::DivideByZero).ctx(ctx);
                 }
-                Value::Integer(l / rn)
+                Value::Number(Rc::new(&*l / &*rn))
             }
             Value::Mod(l, r) => {
                 let l = int(self, l)?;
                 let rn = int(self, r)?;
-                if rn == 0 {
+                if *rn == BigRational::zero() {
                     return self.error(r, ErrorType::DivideByZero).ctx(ctx);
                 }
-                Value::Integer(l % rn)
+                Value::Number(Rc::new(&*l % &*rn))
             }
-            Value::Neg(e) => Value::Integer(c!(0i64.checked_sub(int(self, e)?))),
+            Value::Neg(e) => {
+                Value::Number(Rc::new((*int(self, e)?).clone().neg()))
+            },
             _ => unreachable!(),
         };
 
@@ -457,7 +451,7 @@ impl Elang {
             }
             Value::Null
             | Value::String(..)
-            | Value::Integer(..)
+            | Value::Number(..)
             | Value::Resolved(..)
             | Value::Fn(FnType::BuiltIn(..))
             | Value::Bool(..)
@@ -564,7 +558,7 @@ impl Elang {
         let dst = dst.val.borrow();
         match *dst {
             Value::String(..) => *val = Value::Resolved(None, e),
-            Value::Integer(v) => {
+            Value::Number(ref v) => {
                 let s = format!("{}", v);
                 let id = self.store.add_str(s.into_bytes().into_boxed_slice().into());
                 *val = Value::String(id);
@@ -575,7 +569,7 @@ impl Elang {
                     .error(
                         expr.id,
                         ErrorType::UnexpectedExpr(
-                            &[ValueType::String, ValueType::Integer],
+                            &[ValueType::String, ValueType::Number],
                             dst.ty(),
                         ),
                     )
@@ -690,7 +684,7 @@ impl Elang {
             };
 
             let mut path = &self.get_path(path).ctx(ctx)?[..];
-            let mut bad_path = Selector::Integer(0);
+            let mut bad_path = None;
             let mut last_ok = set;
 
             while !path.is_empty() {
@@ -712,9 +706,9 @@ impl Elang {
                     self.force(alt)?;
                     alt
                 } else {
-                    let et = match bad_path {
+                    let et = match bad_path.unwrap() {
                         Selector::Ident(i) => ErrorType::MissingSetField(i),
-                        Selector::Integer(i) => ErrorType::MissingListField(i),
+                        Selector::Number(ref i) => ErrorType::MissingListField(i.clone()),
                         _ => unreachable!(),
                     };
                     let mut e = self.error_(set, et);

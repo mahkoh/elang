@@ -1,6 +1,5 @@
 use crate::types::{
     diagnostic::{Error, ErrorContext, ErrorType, TokenAlternative},
-    num::{HexU32, Parsable},
     result::{Result, ResultUtil},
     span::{Span, Spanned},
     store::{Store, StrId},
@@ -350,26 +349,7 @@ impl<'a, 'b> Lexer<'a, 'b> {
         }
 
         if let b'0'..=b'9' = cur {
-            let (val, len) = i64::parse_bytes_init(self.chars.text());
-            if let Some((next_pos, next)) = self.chars.peek(len) {
-                if let b'0'..=b'9' = next {
-                    return self.error(
-                        Span::new(self.lo + cur_pos, self.lo + next_pos),
-                        ErrorType::OutOfBoundsLiteral,
-                    );
-                }
-                if is_ident_cont!(next) {
-                    return self.error(
-                        Span::new(self.lo + next_pos, self.lo + next_pos + 1),
-                        ErrorType::UnexpectedIntegerSuffix(next),
-                    );
-                }
-            }
-            self.chars.skip(len);
-            return Ok(Some(Spanned::new(
-                Span::new(self.lo + cur_pos, self.pos()),
-                Token::Integer(val),
-            )));
+            return self.number().map(Some);
         }
 
         macro_rules! is_ident_start {
@@ -474,22 +454,99 @@ impl<'a, 'b> Lexer<'a, 'b> {
         self.next_left_brace()?;
         self.skip_whitespace();
         let before = self.pos();
-        let (val, len) = HexU32::parse_bytes_init(self.chars.text());
+        let mut len = 0;
+        let mut val = 0u32;
+        while let Some((pos, mut next)) = self.chars.peek(0) {
+            next -= match next {
+                b'0'..=b'9' => b'0',
+                b'a'..=b'f' => b'a' - 10,
+                b'A'..=b'F' => b'A' - 10,
+                _ => break,
+            };
+            len += 1;
+            self.chars.skip(1);
+            val = match val.checked_shl(4).and_then(|val| val.checked_add(next as u32)) {
+                Some(val) => val,
+                _ => return self.error(Span::new(before, pos), ErrorType::OutOfBoundsLiteral),
+            }
+        }
         if len == 0 {
             return self.error(
                 Span::new(self.pos(), self.pos() + 1),
                 ErrorType::MissingCodePoint,
             );
         }
-        self.chars.skip(len);
         let after = self.pos();
         let _ = self.next_right_brace()?;
-        match std::char::from_u32(val.0) {
+        match std::char::from_u32(val) {
             Some(c) => Ok(c),
             _ => {
-                self.error(Span::new(before, after), ErrorType::InvalidCodePoint(val.0))
+                self.error(Span::new(before, after), ErrorType::InvalidCodePoint(val))
             }
         }
+    }
+
+    fn number(&mut self) -> Result<SToken> {
+        let mut saw_dot = false;
+        let mut post_dot_places = 0;
+        let mut res = vec!();
+        let mut base = 10;
+        let (start, first) = self.chars.peek(0).unwrap();
+        if first == b'0' {
+            match self.chars.peek(1) {
+                Some((_, b'b')) => base = 2,
+                Some((_, b'o')) => base = 8,
+                Some((_, b'x')) => base = 16,
+                _ => { },
+            }
+            if base != 10 {
+                self.chars.skip(2);
+            }
+        }
+        macro_rules! parse {
+            ($($pat:pat)|+) => {
+                while let Some((next_pos, next)) = self.chars.peek(0) {
+                    match next {
+                        b'_' => { },
+                        b'.' if !saw_dot => saw_dot = true,
+                        $($pat)|+ => {
+                            res.push(next);
+                            if saw_dot {
+                                post_dot_places += 1;
+                            }
+                        },
+                        #[allow(unreachable_patterns, overlapping_patterns)]
+                        b'0'..=b'9' | b'a'..=b'z' | b'A'..=b'Z' => {
+                            return self.error(
+                                Span::new(next_pos, next_pos + 1),
+                                ErrorType::UnexpectedNumberSuffix(next),
+                            );
+                        }
+                        _ => break,
+                    }
+                    self.chars.skip(1);
+                }
+            }
+        }
+        match base {
+            2 => parse!(b'0' | b'1'),
+            8 => parse!(b'0'..=b'7'),
+            10 => parse!(b'0'..=b'9'),
+            16 => parse!(b'0'..=b'9' | b'a'..=b'f' | b'A'..=b'F'),
+            _ => unreachable!(),
+        }
+        let span = Span::new(start, self.pos());
+        if res.is_empty() {
+            return self.error(
+                span,
+                ErrorType::EmptyNumberLiteral,
+            )
+        }
+        let value = self.store.add_str(res.into_boxed_slice().into());
+        Ok(Spanned::new(
+            span,
+            Token::Number(value, base, post_dot_places)
+        ))
     }
 
     fn error<T>(&self, span: Span, error: ErrorType) -> Result<T> {

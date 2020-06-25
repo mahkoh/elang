@@ -1,5 +1,4 @@
 pub mod diagnostic;
-pub mod num;
 pub mod op;
 pub mod result;
 pub mod scope;

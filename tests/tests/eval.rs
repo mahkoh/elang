@@ -1,6 +1,7 @@
 use elang::{Elang, Error, ErrorType, ExprId, Value, Diagnostic};
 use std::{fs::DirEntry, os::unix::ffi::OsStrExt, rc::Rc, fmt};
 use std::fmt::{Display, Formatter};
+use num_rational::BigRational;
 
 #[test]
 fn eval() {
@@ -62,9 +63,15 @@ impl Test {
         };
         let expr = expr.value().borrow();
         match (&*expr, expected) {
-            (&Value::Integer(i1), serde_json::Value::Number(i2)) => {
-                let i2 = i2.as_i64().unwrap();
-                if i1 != i2 {
+            (&Value::Number(ref i1), serde_json::Value::Number(i2)) => {
+                let i2 = if i2.is_i64() {
+                    BigRational::from((i2.as_i64().unwrap().into(), 1.into()))
+                } else if i2.is_u64() {
+                    BigRational::from((i2.as_u64().unwrap().into(), 1.into()))
+                } else {
+                    BigRational::from_float(i2.as_f64().unwrap()).unwrap()
+                };
+                if &**i1 != &i2 {
                     self.error(actual, format!("expected {}, got {}", i2, i1));
                     return true;
                 }
@@ -135,7 +142,7 @@ impl Test {
                 return err;
             }
             _ => {
-                self.error(actual, format!("cannot handle {:?}", expr.debug(&self.e)));
+                self.error(actual, format!("cannot handle {:?}", expr.ty()));
                 return true;
             }
         }

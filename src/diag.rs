@@ -220,8 +220,7 @@ impl Diagnostic {
                 }
             }
             ErrorType::OutOfBoundsLiteral => format!("out-of-bounds literal"),
-            ErrorType::OutOfBoundsSelector(i) => format!("out-of-bounds selector: {}", i),
-            ErrorType::UnexpectedIntegerSuffix(b) => format!("unexpected integer suffix {:?}", &String::from_utf8_lossy(&[b])),
+            ErrorType::UnexpectedNumberSuffix(b) => format!("unexpected integer suffix {:?}", &String::from_utf8_lossy(&[b])),
             ErrorType::UnexpectedByte(b) => format!("unexpected byte 0x{:02X}", b),
             ErrorType::MissingCodePoint => format!("missing code point"),
             ErrorType::InvalidCodePoint(i) => format!("invalid code point {}", i),
@@ -253,7 +252,7 @@ impl Diagnostic {
                 let s = e.get_interned(name);
                 format!("missing set field `{}`", &String::from_utf8_lossy(&s))
             },
-            ErrorType::MissingListField(n) => format!("missing list field {}", n),
+            ErrorType::MissingListField(ref n) => format!("missing list field {}", n),
             ErrorType::InfiniteRecursion(_) => format!("infinite recursion"),
             ErrorType::CannotForceExpr(ty) => format!("cannot force expression of type `{}`", ty.as_str()),
             ErrorType::DivideByZero => format!("division by 0"),
@@ -275,6 +274,7 @@ impl Diagnostic {
             ErrorType::SpanOverflow => format!("span overflow"),
             ErrorType::Overflow => format!("overflow"),
             ErrorType::AssertionFailed => format!("assertion failed"),
+            ErrorType::EmptyNumberLiteral => format!("empty number literal"),
             ErrorType::Custom(ref custom) => {
                 let custom = &**custom;
                 h(custom)
