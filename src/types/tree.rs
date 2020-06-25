@@ -350,15 +350,15 @@ pub enum Selector {
 }
 
 pub trait BuiltInFn {
-    fn apply(&self, expr: Rc<Expr>) -> Result<Value>;
+    fn apply(&self, elang: &mut Elang, expr: Rc<Expr>) -> Result<Value>;
 }
 
 impl<T> BuiltInFn for T
 where
-    T: Fn(Rc<Expr>) -> Result<Value>,
+    T: Fn(&mut Elang, Rc<Expr>) -> Result<Value>,
 {
-    fn apply(&self, expr: Rc<Expr>) -> Result<Value> {
-        self(expr)
+    fn apply(&self, elang: &mut Elang, expr: Rc<Expr>) -> Result<Value> {
+        self(elang, expr)
     }
 }
 

@@ -10,7 +10,7 @@ mod force;
 mod get;
 
 impl Elang {
-    fn equal_to(&mut self, left: ExprId, right: ExprId) -> Result<bool> {
+    pub(crate) fn equal_to(&mut self, left: ExprId, right: ExprId) -> Result<bool> {
         let l = self.resolve_(left)?;
         let r = self.resolve_(right)?;
         let l = l.val.borrow();
@@ -33,7 +33,7 @@ impl Elang {
     /// After forcing, this expression can be a reference to a datatype expression. This
     /// function recursively resolves these references and returns the datatype
     /// expression.
-    pub fn resolve_(&mut self, mut expr: ExprId) -> Result<Rc<Expr>> {
+    pub(crate) fn resolve_(&mut self, mut expr: ExprId) -> Result<Rc<Expr>> {
         self.force(expr)?;
 
         let mut e;
@@ -47,11 +47,11 @@ impl Elang {
         Ok(e)
     }
 
-    pub fn span_(&self, expr: ExprId) -> Span {
+    pub(crate) fn span_(&self, expr: ExprId) -> Span {
         self.store.get_expr(expr).span
     }
 
-    pub fn deep_copy(&mut self, target: ExprId) -> ExprId {
+    pub(crate) fn deep_copy(&mut self, target: ExprId) -> ExprId {
         macro_rules! copy {
             ($e:expr) => {
                 self.deep_copy($e)

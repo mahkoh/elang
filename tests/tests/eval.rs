@@ -1,7 +1,6 @@
-use crate::diag::TestDiag;
-use bstr::ByteSlice;
-use elang::{util::codemap::Codemap, Elang, Error, ErrorType, ExprId, Value};
-use std::{cell::RefCell, fs::DirEntry, os::unix::ffi::OsStrExt, rc::Rc};
+use elang::{Elang, Error, ErrorType, ExprId, Value, Diagnostic};
+use std::{fs::DirEntry, os::unix::ffi::OsStrExt, rc::Rc, fmt};
+use std::fmt::{Display, Formatter};
 
 #[test]
 fn eval() {
@@ -26,27 +25,24 @@ fn test(dir: DirEntry) -> bool {
 
     println!("testing {}", in_path.display());
 
-    let codemap = Codemap::new();
-    let lo = codemap.add_file(
+    let mut diag = Diagnostic::new();
+    let lo = diag.add_src(
         Rc::from(in_path.as_os_str().as_bytes().to_vec().into_boxed_slice()),
         in_bytes.clone(),
     );
-    let codemap = Rc::new(RefCell::new(codemap));
 
     let mut e = Elang::new();
-
-    let diag = TestDiag::new(codemap);
 
     let res = match e.parse(lo, &in_bytes) {
         Ok(r) => r,
         Err(msg) => {
-            diag.handle(&mut e, &msg);
+            diag.handle(&mut e, &msg, |_| format!(""));
             return true;
         }
     };
 
     if let Err(msg) = e.eval(res) {
-        diag.handle(&mut e, &msg);
+        diag.handle(&mut e, &msg, |e| format!("{:?}", e));
         return true;
     }
 
@@ -55,7 +51,7 @@ fn test(dir: DirEntry) -> bool {
 
 struct Test {
     e: Elang,
-    diag: TestDiag,
+    diag: Diagnostic,
 }
 
 impl Test {
@@ -103,7 +99,7 @@ impl Test {
                 if &*s1 != s2.as_bytes() {
                     self.error(
                         actual,
-                        format!("expected `{:?}`, got `{:?}`", s2, s1.as_bstr()),
+                        format!("expected `{}`, got `{}`", s2, &String::from_utf8_lossy(&s1)),
                     );
                     return true;
                 }
@@ -147,10 +143,19 @@ impl Test {
     }
 
     fn error(&self, expr: ExprId, msg: String) {
+        #[derive(Debug)]
+        struct Ce(String);
+        impl std::error::Error for Ce { }
+        impl Display for Ce {
+            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+                write!(f, "{}", self.0)
+            }
+        }
+
         self.diag.handle(&self.e,&Error {
             span: self.e.span(expr),
-            error: ErrorType::UnexpectedEndOfInput,
+            error: ErrorType::Custom(Rc::new(Ce(msg))),
             context: vec![],
-        });
+        }, |c| format!("{}", c));
     }
 }

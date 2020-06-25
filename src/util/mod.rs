@@ -1,2 +1,3 @@
-pub mod codemap;
+#![allow(unused)]
+
 pub mod graphviz;

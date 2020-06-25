@@ -67,8 +67,8 @@ impl<'a> CharStream<'a> {
     }
 }
 
-pub struct Lexer<'a> {
-    store: Store,
+pub struct Lexer<'a, 'b> {
+    pub(crate) store: &'b mut Store,
     peek: VecDeque<SToken>,
     lo: u32,
     pub chars: CharStream<'a>,
@@ -86,8 +86,8 @@ macro_rules! next_t {
     };
 }
 
-impl<'a> Lexer<'a> {
-    pub fn new(lo: u32, src: &'a [u8], store: Store) -> Self {
+impl<'a, 'b> Lexer<'a, 'b> {
+    pub fn new(lo: u32, src: &'a [u8], store: &'b mut Store) -> Self {
         Lexer {
             store,
             peek: VecDeque::new(),
@@ -102,10 +102,6 @@ impl<'a> Lexer<'a> {
 
     pub fn pos(&self) -> u32 {
         self.lo + self.chars.pos()
-    }
-
-    pub fn next_pos(&mut self) -> Result<u32> {
-        Ok(self.peek(0)?.span.lo)
     }
 
     fn skip_whitespace(&mut self) {
@@ -185,10 +181,6 @@ impl<'a> Lexer<'a> {
 
     pub fn next_right_brace(&mut self) -> Result<SToken> {
         next_t!(self, Token::RightBrace, TokenType::RightBrace)
-    }
-
-    pub fn next_comma(&mut self) -> Result<SToken> {
-        next_t!(self, Token::Comma, TokenType::Comma)
     }
 
     pub fn next_right_paren(&mut self) -> Result<SToken> {

@@ -6,7 +6,7 @@ use crate::{
         result::{Result, ResultUtil},
         span::{Span, Spanned},
         stack::Stack,
-        store::{Store, StrId},
+        store::{StrId},
         token::{Token, TokenType},
         tree::{ExprId, FnArg, FnType, SExpr, Selector, Value},
     },
@@ -17,12 +17,11 @@ use std::{
 };
 
 /// An expression parser.
-pub struct Parser<'a> {
-    lexer: Lexer<'a>,
-    store: Store,
+pub struct Parser<'a, 'b> {
+    lexer: Lexer<'a, 'b>,
 }
 
-impl<'a> Parser<'a> {
+impl<'a, 'b> Parser<'a, 'b> {
     /// Creates a new parser.
     ///
     /// [argument, lexer]
@@ -30,8 +29,8 @@ impl<'a> Parser<'a> {
     ///
     /// [argument, diagnostic]
     /// The destination for diagnostic messages.
-    pub fn new(lexer: Lexer<'a>, store: Store) -> Self {
-        Parser { lexer, store }
+    pub fn new(lexer: Lexer<'a, 'b>) -> Self {
+        Parser { lexer }
     }
 
     /// Parses the content of the parser.
@@ -50,13 +49,13 @@ impl<'a> Parser<'a> {
         Ok(expr.val)
     }
 
-    fn spanned(&self, span: Span, expr: Value) -> SExpr {
-        Spanned::new(span, self.store.add_expr(span, expr))
+    fn spanned(&mut self, span: Span, expr: Value) -> SExpr {
+        Spanned::new(span, self.lexer.store.add_expr(span, expr))
     }
 
     /// Parses an expression.
     fn parse_expr(&mut self) -> Result<SExpr> {
-        let mut stack = Stack::new(self.store.clone());
+        let mut stack = Stack::new();
 
         'outer: loop {
             // Step 1: Check for unary operators.
@@ -64,11 +63,11 @@ impl<'a> Parser<'a> {
                 let cur = self.lexer.peek(0)?;
                 if match cur.val {
                     Token::Not => {
-                        stack.push_op(Op::Not(cur.span.lo));
+                        stack.push_op(&mut self.lexer.store, Op::Not(cur.span.lo));
                         true
                     }
                     Token::Minus => {
-                        stack.push_op(Op::UnMin(cur.span.lo));
+                        stack.push_op(&mut self.lexer.store, Op::UnMin(cur.span.lo));
                         true
                     }
                     _ => false,
@@ -129,7 +128,7 @@ impl<'a> Parser<'a> {
                     // e ? i1.i2.i3
                     // ----
 
-                    stack.next_op(op);
+                    stack.next_op(&mut self.lexer.store, op);
                     let expr = stack.pop_expr();
                     let path = self.parse_attr_path().ctx(ErrorContext::ParseTest(next.span.lo))?;
                     let span = Span::new(expr.span.lo, path.span.hi);
@@ -148,7 +147,7 @@ impl<'a> Parser<'a> {
                     // e1.i1.i2.i3 or e2
                     // ----
 
-                    stack.next_op(op);
+                    stack.next_op(&mut self.lexer.store, op);
                     let expr = stack.pop_expr();
                     let path = self
                         .parse_attr_path()
@@ -166,13 +165,13 @@ impl<'a> Parser<'a> {
                     let expr = self.spanned(span, expr);
                     stack.push_expr(expr);
                 } else {
-                    stack.push_op(op);
+                    stack.push_op(&mut self.lexer.store, op);
                     break;
                 }
             }
         }
 
-        Ok(stack.clear())
+        Ok(stack.clear(&mut self.lexer.store, ))
     }
 
     /// Parses an atomic expression.
@@ -271,7 +270,7 @@ impl<'a> Parser<'a> {
                         )));
                     }
                 };
-                let expr_ = self.store.get_expr(expr.val).val.borrow().clone();
+                let expr_ = self.lexer.store.get_expr(expr.val).val.borrow().clone();
                 let span = Span::new(opening.span.lo, closing.span.hi);
                 Ok(self.spanned(span, expr_))
             }

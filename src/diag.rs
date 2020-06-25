@@ -1,66 +1,193 @@
-use bstr::ByteSlice;
-use console::{style, Color};
-use elang::{util::codemap::{Codemap, LineIter}, Elang, Error, ErrorType, Span, TokenAlternative, ErrorContext};
-use std::{cell::RefCell, fmt::Write, rc::Rc};
+use crate::{Elang, Error, ErrorType, Span, TokenAlternative, ErrorContext};
+use std::{fmt::Write};
+use std::rc::Rc;
 
-#[derive(Clone)]
-pub struct TestDiag {
-    codemap: Rc<RefCell<Codemap>>,
-    is_term: bool,
+struct Codemap {
+    files: Vec<Filemap>,
 }
 
-impl TestDiag {
-    pub fn new(codemap: Rc<RefCell<Codemap>>) -> Self {
-        Self {
-            codemap,
-            is_term: atty::is(atty::Stream::Stderr),
+impl Codemap {
+    fn new() -> Codemap {
+        Codemap {
+            files: vec!(),
         }
     }
 
-    fn common(&self, span: Span, color: Color, prefix: &str, f: &str) {
+    fn add_file(&mut self, name: Rc<[u8]>, src: Rc<[u8]>) -> u32 {
+        let old_pos = match self.files.last() {
+            Some(f) => *f.lines.last().unwrap(),
+            _ => 0,
+        };
+        let mut cur_pos = old_pos;
+        let mut lines = Vec::new();
+        lines.push(cur_pos);
+        {
+            let mut src = &*src;
+            while src.len() > 0 {
+                let pos = src.iter().position(|&c| c == b'\n').unwrap() + 1;
+                cur_pos += pos as u32;
+                src = &src[pos..];
+                lines.push(cur_pos);
+            }
+        }
+        let map = Filemap {
+            file: name,
+            src,
+            lines: lines.into_boxed_slice(),
+        };
+        self.files.push(map);
+        old_pos
+    }
+
+    fn file(&self, span: Span) -> &Filemap {
+        for file in &*self.files {
+            if file.lines[file.lines.len() - 1] > span.lo {
+                return file;
+            }
+        }
+        &self.files[self.files.len() - 1]
+    }
+}
+
+struct Filemap {
+    file: Rc<[u8]>,
+    src: Rc<[u8]>,
+    /// Contains at index `i` the byte that starts line `i+1`.
+    lines: Box<[u32]>,
+}
+
+impl Filemap {
+    fn file(&self) -> &[u8] {
+        &self.file
+    }
+
+    fn lines(&self, span: Span) -> LineIter {
+        let start = match self.lines.binary_search_by(|&l| l.cmp(&span.lo)) {
+            Ok(l) => l,
+            Err(l) => l - 1,
+        };
+        let end = match self.lines.binary_search_by(|&l| l.cmp(&span.hi)) {
+            Ok(0) => 1,
+            Ok(l) => l,
+            Err(l) => l,
+        };
+        LineIter {
+            src: self,
+            start,
+            end,
+            start_idx: span.lo - self.lines[start],
+            end_idx: span.hi - self.lines[end - 1],
+        }
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct LineIter<'a> {
+    src: &'a Filemap,
+    start: usize,
+    end: usize,
+    start_idx: u32,
+    end_idx: u32,
+}
+
+#[allow(clippy::len_without_is_empty)]
+impl<'a> LineIter<'a> {
+    pub fn len(&self) -> usize {
+        self.end - self.start
+    }
+
+    pub fn start(&self) -> usize {
+        self.start + 1
+    }
+
+    pub fn last(&self) -> usize {
+        self.end
+    }
+
+    pub fn start_idx(&self) -> u32 {
+        self.start_idx
+    }
+
+    pub fn last_idx(&self) -> u32 {
+        self.end_idx - 1
+    }
+}
+
+impl<'a> Iterator for LineIter<'a> {
+    type Item = (u32, &'a [u8]);
+
+    fn next(&mut self) -> Option<(u32, &'a [u8])> {
+        if self.start == self.end {
+            None
+        } else {
+            let base = self.src.lines[0];
+            let lo = self.src.lines[self.start] - base;
+            let hi = self.src.lines[self.start + 1] - base;
+            let line = &self.src.src[lo as usize..hi as usize];
+            self.start += 1;
+            Some((self.start as u32, line))
+        }
+    }
+}
+
+pub struct Diagnostic {
+    codemap: Codemap,
+}
+
+impl Diagnostic {
+    pub fn new() -> Self {
+        Self {
+            codemap: Codemap::new(),
+        }
+    }
+
+    pub fn add_src(&mut self, name: Rc<[u8]>, src: Rc<[u8]>) -> u32 {
+        self.codemap.add_file(name, src)
+    }
+
+    fn common(&self, span: Span, prefix: &str, f: &str) {
         macro_rules! w { ($($tt:tt)*) => { eprint!($($tt)*) } }
         macro_rules! wl { ($($tt:tt)*) => { eprintln!($($tt)*) } }
 
         if span == Span::built_in() {
             w!("<built in> ");
-            w!("{}{}", style(prefix).bold().fg(color), style(f).bold());
+            w!("{}{}", prefix, f);
             wl!("");
             return;
         }
 
-        let codemap = self.codemap.borrow();
-        let file = codemap.file(span);
+        let file = self.codemap.file(span);
         let mut lines = file.lines(span);
         wl!(
             "{}:{}:{}: {}:{} {}{}",
-            file.file().as_bstr(),
+            &String::from_utf8_lossy(file.file()),
             lines.start(),
             lines.start_idx() + 1,
             LineIter::last(&lines),
             lines.last_idx() + 1,
-            style(prefix).bold().fg(color),
-            style(f).bold(),
+            prefix,
+            f,
         );
         let len = lines.len();
         for (_, src) in &mut lines {
-            w!("{} {}", style(">>>").bold().black(), src.as_bstr());
+            w!("{} {}", ">>>", &String::from_utf8_lossy(src));
         }
         if len == 1 {
-            w!("{} ", style(">>>").bold().black());
+            w!("{} ", ">>>");
             for _ in 0..lines.start_idx() {
                 w!(" ");
             }
-            w!("{}", style("^").bold().fg(color));
+            w!("{}", "^");
             for _ in lines.start_idx()..lines.last_idx() {
-                w!("{}", style("~").bold().fg(color));
+                w!("~");
             }
             wl!("");
         }
     }
 }
 
-impl TestDiag {
-    pub fn handle(&self, e: &Elang, msg: &Error) {
+impl Diagnostic {
+    pub fn handle<H: FnOnce(&(dyn std::error::Error + 'static)) -> String>(&self, e: &Elang, msg: &Error, h: H) {
         let text = match msg.error {
             ErrorType::UnexpectedEndOfInput => format!("unexpected end of input"),
             ErrorType::UnexpectedToken(exp, act) => match exp {
@@ -94,16 +221,16 @@ impl TestDiag {
             }
             ErrorType::OutOfBoundsLiteral => format!("out-of-bounds literal"),
             ErrorType::OutOfBoundsSelector(i) => format!("out-of-bounds selector: {}", i),
-            ErrorType::UnexpectedIntegerSuffix(b) => format!("unexpected integer suffix {:?}", [b].as_bstr()),
+            ErrorType::UnexpectedIntegerSuffix(b) => format!("unexpected integer suffix {:?}", &String::from_utf8_lossy(&[b])),
             ErrorType::UnexpectedByte(b) => format!("unexpected byte 0x{:02X}", b),
             ErrorType::MissingCodePoint => format!("missing code point"),
             ErrorType::InvalidCodePoint(i) => format!("invalid code point {}", i),
             ErrorType::UnknownEscapeSequence(b) => format!("unknown escape sequence {:?}", b),
             ErrorType::DuplicateIdentifier(id, prev) => {
                 let s = e.get_interned(id);
-                let txt = format!("duplicate identifier `{}`", s.as_bstr());
-                self.common(msg.span, Color::Red, "error: ", &txt);
-                self.common(prev, Color::Cyan, "note: ", "previous declaration here");
+                let txt = format!("duplicate identifier `{}`", &String::from_utf8_lossy(&s));
+                self.common(msg.span, "error: ", &txt);
+                self.common(prev, "note: ", "previous declaration here");
                 self.trace(e, msg);
                 return;
             },
@@ -124,7 +251,7 @@ impl TestDiag {
             },
             ErrorType::MissingSetField(name) => {
                 let s = e.get_interned(name);
-                format!("missing set field `{}`", s.as_bstr())
+                format!("missing set field `{}`", &String::from_utf8_lossy(&s))
             },
             ErrorType::MissingListField(n) => format!("missing list field {}", n),
             ErrorType::InfiniteRecursion(_) => format!("infinite recursion"),
@@ -132,24 +259,28 @@ impl TestDiag {
             ErrorType::DivideByZero => format!("division by 0"),
             ErrorType::ExtraArgument(name, span) => {
                 let s = e.get_interned(name);
-                self.common(msg.span, Color::Red, "error: ", &format!("extra argument `{}`", s.as_bstr()));
-                self.common(span, Color::Cyan, "note: ", "parameters declared here");
+                self.common(msg.span, "error: ", &format!("extra argument `{}`", &String::from_utf8_lossy(&s)));
+                self.common(span, "note: ", "parameters declared here");
                 self.trace(e, msg);
                 return;
             },
             ErrorType::MissingArgument(name, span) =>{
                 let s = e.get_interned(name);
-                self.common(msg.span, Color::Red, "error: ", &format!("missing argument `{}`", s.as_bstr()));
-                self.common(span, Color::Cyan, "note: ", "parameter declared here");
+                self.common(msg.span, "error: ", &format!("missing argument `{}`", &String::from_utf8_lossy(&s)));
+                self.common(span, "note: ", "parameter declared here");
                 self.trace(e, msg);
                 return;
             },
             ErrorType::MissingNewline => format!("missing newline"),
             ErrorType::SpanOverflow => format!("span overflow"),
             ErrorType::Overflow => format!("overflow"),
-            _ => format!(""),
+            ErrorType::AssertionFailed => format!("assertion failed"),
+            ErrorType::Custom(ref custom) => {
+                let custom = &**custom;
+                h(custom)
+            }
         };
-        self.common(msg.span, Color::Red, "error: ", &text);
+        self.common(msg.span, "error: ", &text);
         self.trace(e, msg);
     }
 
@@ -182,9 +313,8 @@ impl TestDiag {
                 ErrorContext::EvalStringify(eid) => (e(eid), q("stringify expression")),
                 ErrorContext::EvalApl(eid) => (e(eid), q("function application")),
                 ErrorContext::EvalSelect(eid) => (e(eid), q("select expression")),
-                _ => unreachable!(),
             };
-            self.common(span, Color::Cyan, "note: ", &txt);
+            self.common(span, "note: ", &txt);
         }
     }
 }

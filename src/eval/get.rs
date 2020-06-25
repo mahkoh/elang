@@ -19,7 +19,7 @@ impl Elang {
     ///
     /// If the datatype expression is not a boolean, an error message is printed and an
     /// error is returned.
-    pub fn get_bool_(&mut self, expr: ExprId) -> Result<bool> {
+    pub(crate) fn get_bool_(&mut self, expr: ExprId) -> Result<bool> {
         let res = self.resolve_(expr)?;
         let val = res.val.borrow();
         match *val {
@@ -31,7 +31,7 @@ impl Elang {
         }
     }
 
-    pub fn get_string_(&mut self, expr: ExprId) -> Result<StrId> {
+    pub(crate) fn get_string_(&mut self, expr: ExprId) -> Result<StrId> {
         let res = self.resolve_(expr)?;
         let val = res.val.borrow();
         match *val {
@@ -53,7 +53,7 @@ impl Elang {
     ///
     /// If the datatype expression is not an integer, an error message is printed and an
     /// error is returned.
-    pub fn get_int_(&mut self, expr: ExprId) -> Result<i64> {
+    pub(crate) fn get_int_(&mut self, expr: ExprId) -> Result<i64> {
         let res = self.resolve_(expr)?;
         let val = res.val.borrow();
         match *val {
@@ -75,7 +75,7 @@ impl Elang {
     ///
     /// If the datatype expression is not a list, an error message is printed and an error
     /// is returned.
-    pub fn get_list_(&mut self, expr: ExprId) -> Result<Rc<[ExprId]>> {
+    pub(crate) fn get_list_(&mut self, expr: ExprId) -> Result<Rc<[ExprId]>> {
         let res = self.resolve_(expr)?;
         let val = res.val.borrow();
         match *val {
@@ -102,7 +102,7 @@ impl Elang {
     /// If the datatype expression is not a set or an overlay, an error message is printed
     /// and an error is returned. If the set does not contain the field, `None` is
     /// returned but no error is printed.
-    pub fn get_opt_field_(
+    pub(crate) fn get_opt_field_(
         &mut self,
         expr: ExprId,
         selector: &Selector,
@@ -148,7 +148,7 @@ impl Elang {
         self.get_field_(expr, &sel, out)
     }
 
-    pub fn get_field_int(
+    pub(crate) fn get_field_int(
         &mut self,
         expr: ExprId,
         selector: &Selector,
@@ -221,7 +221,7 @@ impl Elang {
     ///
     /// If the datatype expression is not a set, an error message is printed and an error
     /// is returned.
-    pub fn get_fields_(&mut self, expr: ExprId) -> Result<Fields> {
+    pub(crate) fn get_fields_(&mut self, expr: ExprId) -> Result<Fields> {
         let res = self.resolve_(expr)?;
         let val = res.val.borrow();
         match *val {
@@ -244,7 +244,7 @@ impl Elang {
     ///
     /// If the datatype expression is not a function, an error message is printed and an
     /// error is returned.
-    pub fn get_func(&mut self, expr: ExprId) -> Result<FnType> {
+    pub(crate) fn get_func(&mut self, expr: ExprId) -> Result<FnType> {
         let res = self.resolve_(expr)?;
         let val = res.val.borrow();
         match *val {
@@ -253,7 +253,7 @@ impl Elang {
         }
     }
 
-    pub fn get_path(&mut self, expr: ExprId) -> Result<Rc<[ExprId]>> {
+    pub(crate) fn get_path(&mut self, expr: ExprId) -> Result<Rc<[ExprId]>> {
         let e = self.store.get_expr(expr);
         let val = e.val.borrow();
         match *val {
@@ -265,7 +265,7 @@ impl Elang {
         }
     }
 
-    pub fn get_selector(&mut self, expr: ExprId) -> Result<Selector> {
+    pub(crate) fn get_selector(&mut self, expr: ExprId) -> Result<Selector> {
         let e = self.store.get_expr(expr);
         let val = e.val.borrow();
         match *val {

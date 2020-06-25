@@ -46,7 +46,7 @@ impl Elang {
     /// ```elang
     /// rec { a = b, b = a, c = 0 }.c
     /// ```
-    pub fn force(&mut self, eid: ExprId) -> Result {
+    pub(crate) fn force(&mut self, eid: ExprId) -> Result {
         let expr = self.store.get_expr(eid);
         if expr.val.try_borrow_mut().is_err() {
             let mut context = vec!();
@@ -605,7 +605,7 @@ impl Elang {
             FnType::Normal(pat, body) => (pat, body),
             FnType::BuiltIn(func) => {
                 let arg = self.store.get_expr(arg);
-                let res = func.apply(arg)?;
+                let res = func.apply(self, arg)?;
                 *apl.val.borrow_mut() = res;
                 return Ok(());
             }

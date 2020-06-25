@@ -3,7 +3,7 @@ use crate::types::{
     tree::{Expr, ExprId, Value},
 };
 use std::{
-    cell::{Cell, RefCell},
+    cell::{RefCell},
     collections::{hash_map::Entry, HashMap},
     convert::TryInto,
     fmt,
@@ -21,33 +21,26 @@ impl Debug for StrId {
     }
 }
 
-#[derive(Clone)]
 pub struct Store {
-    inner: Rc<Cell<Inner>>,
+    exprs: Vec<Rc<Expr>>,
+    strs: Vec<Rc<[u8]>>,
+    str_to_id: HashMap<Rc<[u8]>, usize>,
 }
 
 impl Store {
     pub fn new() -> Self {
         Self {
-            inner: Rc::new(Cell::new(Inner {
-                exprs: vec![],
-                strs: vec![],
-                str_to_id: Default::default(),
-            })),
+            exprs: vec![],
+            strs: vec![],
+            str_to_id: Default::default(),
         }
     }
 
-    #[allow(clippy::mut_from_ref)]
-    fn inner(&self) -> &mut Inner {
-        unsafe { &mut *self.inner.as_ptr() }
-    }
-
-    pub fn add_expr(&self, span: Span, expr: Value) -> ExprId {
-        let inner = self.inner();
+    pub fn add_expr(&mut self, span: Span, expr: Value) -> ExprId {
         let id = ExprId {
-            id: inner.exprs.len().try_into().unwrap(),
+            id: self.exprs.len().try_into().unwrap(),
         };
-        inner.exprs.push(Rc::new(Expr {
+        self.exprs.push(Rc::new(Expr {
             id,
             span,
             val: RefCell::new(expr),
@@ -56,17 +49,15 @@ impl Store {
     }
 
     pub fn get_expr(&self, expr: ExprId) -> Rc<Expr> {
-        let inner = self.inner();
-        inner.exprs[expr.id as usize].clone()
+        self.exprs[expr.id as usize].clone()
     }
 
-    pub fn add_str(&self, val: Rc<[u8]>) -> StrId {
-        let inner = self.inner();
+    pub fn add_str(&mut self, val: Rc<[u8]>) -> StrId {
         let pos = {
-            match inner.str_to_id.entry(val.clone()) {
+            match self.str_to_id.entry(val.clone()) {
                 Entry::Vacant(v) => {
-                    let pos = inner.strs.len();
-                    inner.strs.push(val);
+                    let pos = self.strs.len();
+                    self.strs.push(val);
                     v.insert(pos);
                     pos
                 }
@@ -77,23 +68,16 @@ impl Store {
     }
 
     pub fn get_str(&self, i: StrId) -> Rc<[u8]> {
-        let inner = self.inner();
         let i = i.0 as usize;
-        assert!(i < inner.strs.len());
-        inner.strs[i].clone()
+        assert!(i < self.strs.len());
+        self.strs[i].clone()
     }
 
-    pub(crate) fn concat(&self, left: StrId, right: StrId) -> StrId {
+    pub(crate) fn concat(&mut self, left: StrId, right: StrId) -> StrId {
         let tmp = self.get_str(left);
         let mut l = tmp.to_vec();
         let r = self.get_str(right);
         l.extend_from_slice(&r);
         self.add_str(l.into_boxed_slice().into())
     }
-}
-
-struct Inner {
-    exprs: Vec<Rc<Expr>>,
-    strs: Vec<Rc<[u8]>>,
-    str_to_id: HashMap<Rc<[u8]>, usize>,
 }

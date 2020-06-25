@@ -2,8 +2,6 @@
 #![allow(clippy::new_without_default)]
 
 pub use crate::{
-    lexer::Lexer,
-    parser::Parser,
     types::{
         diagnostic::{Error, ErrorContext, ErrorType, TokenAlternative},
         result::Result,
@@ -11,15 +9,21 @@ pub use crate::{
         store::{Store, StrId},
         tree::{Expr, ExprId, Fields, Selector, Value},
     },
+    diag::Diagnostic,
 };
 use std::{convert::TryInto, rc::Rc};
+use crate::{
+    lexer::Lexer,
+    parser::Parser,
+};
 
 mod eval;
 mod funcs;
 mod lexer;
 mod parser;
 mod types;
-pub mod util;
+mod util;
+mod diag;
 
 pub struct Elang {
     store: Store,
@@ -42,7 +46,7 @@ impl Elang {
     ///
     /// Returns an error if `src` does not end
     /// in a `\n`. Returns an error if `lo + src.len() > u32::max_value() - 1`.
-    pub fn parse(&self, lo: u32, src: &[u8]) -> Result<ExprId> {
+    pub fn parse(&mut self, lo: u32, src: &[u8]) -> Result<ExprId> {
         if src.last().copied() != Some(b'\n') {
             return self.err(ErrorType::MissingNewline);
         }
@@ -62,8 +66,8 @@ impl Elang {
         if overflow {
             return self.err(ErrorType::SpanOverflow);
         }
-        let lexer = Lexer::new(lo, src, self.store.clone());
-        let mut parser = Parser::new(lexer, self.store.clone());
+        let lexer = Lexer::new(lo, src, &mut self.store);
+        let mut parser = Parser::new(lexer);
         parser.parse()
     }
 
@@ -104,7 +108,7 @@ impl Elang {
         self.force(expr_id)
     }
 
-    pub fn add_expr(&self, span: Span, value: Value) -> ExprId {
+    pub fn add_expr(&mut self, span: Span, value: Value) -> ExprId {
         self.store.add_expr(span, value)
     }
 
@@ -112,7 +116,7 @@ impl Elang {
         self.store.get_expr(expr_id)
     }
 
-    pub fn intern(&self, val: Rc<[u8]>) -> StrId {
+    pub fn intern(&mut self, val: Rc<[u8]>) -> StrId {
         self.store.add_str(val)
     }
 

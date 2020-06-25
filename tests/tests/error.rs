@@ -1,5 +1,4 @@
-use crate::diag::TestDiag;
-use elang::{util::codemap::Codemap, Elang, Error};
+use elang::{Elang, Error, Diagnostic};
 use std::{cell::RefCell, fs::DirEntry, os::unix::ffi::OsStrExt, rc::Rc};
 
 #[test]
@@ -14,9 +13,8 @@ fn error() {
     }
 }
 
-#[derive(Clone)]
 struct ErrorDiag {
-    td: TestDiag,
+    td: Diagnostic,
     lo: Rc<RefCell<Option<u32>>>,
 }
 
@@ -27,7 +25,7 @@ impl ErrorDiag {
             panic!("multiple errors");
         }
         *lo = Some(message.span.lo());
-        self.td.handle(e, &message)
+        self.td.handle(e, &message, |_| format!(""))
     }
 }
 
@@ -55,8 +53,11 @@ fn test(dir: DirEntry) -> bool {
 
     println!("testing {}", path.display());
 
-    let codemap = Codemap::new();
-    codemap.add_file(
+    let mut diag = ErrorDiag {
+        td: Diagnostic::new(),
+        lo: Rc::new(RefCell::new(None)),
+    };
+    diag.td.add_src(
         path.as_os_str()
             .as_bytes()
             .to_vec()
@@ -64,14 +65,8 @@ fn test(dir: DirEntry) -> bool {
             .into(),
         in_bytes.clone(),
     );
-    let codemap = Rc::new(RefCell::new(codemap));
 
     let mut e = Elang::new();
-
-    let diag = ErrorDiag {
-        td: TestDiag::new(codemap.clone()),
-        lo: Rc::new(RefCell::new(None)),
-    };
 
     match e.parse(0, &in_bytes) {
         Ok(res) => {

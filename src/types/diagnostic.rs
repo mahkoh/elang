@@ -2,6 +2,8 @@ use crate::{
     types::{span::Span, store::StrId, token::TokenType, tree::ValueType},
     ExprId,
 };
+use std::fmt::Debug;
+use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct Error {
@@ -44,7 +46,7 @@ pub enum ErrorContext {
     EvalSelect(ExprId),
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug)]
 #[non_exhaustive]
 pub enum ErrorType {
     UnexpectedEndOfInput,
@@ -68,6 +70,8 @@ pub enum ErrorType {
     MissingNewline,
     SpanOverflow,
     Overflow,
+    AssertionFailed,
+    Custom(Rc<dyn std::error::Error + 'static>),
 }
 
 #[derive(Copy, Clone, Debug)]
