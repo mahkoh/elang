@@ -1,31 +1,15 @@
-use crate::{
-    types::{
-        diagnostic::{ErrorContext, ErrorType},
-        result::Result,
-        span::{Span, Spanned},
-        store::Store,
-        tree::{Expr, ExprId, FnArg, FnType, Selector, Value},
-    },
-    Error,
-};
+use crate::{types::{
+    diagnostic::{ErrorContext, ErrorType},
+    result::Result,
+    span::{Span, Spanned},
+    tree::{Expr, ExprId, FnArg, FnType, Selector, Value},
+}, Error, Elang};
 use std::{collections::HashMap, rc::Rc};
 
 mod force;
 mod get;
 
-pub struct Eval {
-    store: Store,
-    force_trace: Vec<ExprId>,
-}
-
-impl Eval {
-    pub fn new_(store: Store) -> Self {
-        Eval {
-            store,
-            force_trace: vec![],
-        }
-    }
-
+impl Elang {
     fn equal_to(&mut self, left: ExprId, right: ExprId) -> Result<bool> {
         let l = self.resolve_(left)?;
         let r = self.resolve_(right)?;

@@ -5,10 +5,10 @@ use crate::types::{
 };
 use std::rc::Rc;
 
-use crate::{eval::Eval, types::diagnostic::ErrorType, Fields};
+use crate::{types::diagnostic::ErrorType, Fields, Elang};
 use std::collections::HashMap;
 
-impl Eval {
+impl Elang {
     /// Forces the expression and tries to interpret the created datatype expression as a
     /// boolean.
     ///

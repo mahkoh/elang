@@ -21,13 +21,13 @@ struct ErrorDiag {
 }
 
 impl ErrorDiag {
-    fn handle(&self, message: Error) {
+    fn handle(&self, e: &mut Elang, message: Error) {
         let mut lo = self.lo.borrow_mut();
         if lo.is_some() {
             panic!("multiple errors");
         }
         *lo = Some(message.span.lo());
-        self.td.handle(&message)
+        self.td.handle(e, &message)
     }
 }
 
@@ -66,20 +66,20 @@ fn test(dir: DirEntry) -> bool {
     );
     let codemap = Rc::new(RefCell::new(codemap));
 
-    let e = Rc::new(Elang::new());
+    let mut e = Elang::new();
 
     let diag = ErrorDiag {
-        td: TestDiag::new(codemap.clone(), e.clone()),
+        td: TestDiag::new(codemap.clone()),
         lo: Rc::new(RefCell::new(None)),
     };
 
     match e.parse(0, &in_bytes) {
         Ok(res) => {
-            if let Err(e) = e.eval(res) {
-                diag.handle(e);
+            if let Err(msg) = e.eval(res) {
+                diag.handle(&mut e, msg);
             }
         }
-        Err(e) => diag.handle(e),
+        Err(msg) => diag.handle(&mut e, msg),
     };
 
     let res = match *diag.lo.borrow() {

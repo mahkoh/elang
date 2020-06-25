@@ -6,15 +6,13 @@ use std::{cell::RefCell, fmt::Write, rc::Rc};
 #[derive(Clone)]
 pub struct TestDiag {
     codemap: Rc<RefCell<Codemap>>,
-    e: Rc<Elang>,
     is_term: bool,
 }
 
 impl TestDiag {
-    pub fn new(codemap: Rc<RefCell<Codemap>>, e: Rc<Elang>) -> Self {
+    pub fn new(codemap: Rc<RefCell<Codemap>>) -> Self {
         Self {
             codemap,
-            e,
             is_term: atty::is(atty::Stream::Stderr),
         }
     }
@@ -62,7 +60,7 @@ impl TestDiag {
 }
 
 impl TestDiag {
-    pub fn handle(&self, msg: &Error) {
+    pub fn handle(&self, e: &Elang, msg: &Error) {
         let text = match msg.error {
             ErrorType::UnexpectedEndOfInput => format!("unexpected end of input"),
             ErrorType::UnexpectedToken(exp, act) => match exp {
@@ -102,11 +100,11 @@ impl TestDiag {
             ErrorType::InvalidCodePoint(i) => format!("invalid code point {}", i),
             ErrorType::UnknownEscapeSequence(b) => format!("unknown escape sequence {:?}", b),
             ErrorType::DuplicateIdentifier(id, prev) => {
-                let s = self.e.get_interned(id);
+                let s = e.get_interned(id);
                 let txt = format!("duplicate identifier `{}`", s.as_bstr());
                 self.common(msg.span, Color::Red, "error: ", &txt);
                 self.common(prev, Color::Cyan, "note: ", "previous declaration here");
-                self.trace(msg);
+                self.trace(e, msg);
                 return;
             },
             ErrorType::UnexpectedExpr(expected, actual) => {
@@ -125,7 +123,7 @@ impl TestDiag {
                 s
             },
             ErrorType::MissingSetField(name) => {
-                let s = self.e.get_interned(name);
+                let s = e.get_interned(name);
                 format!("missing set field `{}`", s.as_bstr())
             },
             ErrorType::MissingListField(n) => format!("missing list field {}", n),
@@ -133,17 +131,17 @@ impl TestDiag {
             ErrorType::CannotForceExpr(ty) => format!("cannot force expression of type `{}`", ty.as_str()),
             ErrorType::DivideByZero => format!("division by 0"),
             ErrorType::ExtraArgument(name, span) => {
-                let s = self.e.get_interned(name);
+                let s = e.get_interned(name);
                 self.common(msg.span, Color::Red, "error: ", &format!("extra argument `{}`", s.as_bstr()));
                 self.common(span, Color::Cyan, "note: ", "parameters declared here");
-                self.trace(msg);
+                self.trace(e, msg);
                 return;
             },
             ErrorType::MissingArgument(name, span) =>{
-                let s = self.e.get_interned(name);
+                let s = e.get_interned(name);
                 self.common(msg.span, Color::Red, "error: ", &format!("missing argument `{}`", s.as_bstr()));
                 self.common(span, Color::Cyan, "note: ", "parameter declared here");
-                self.trace(msg);
+                self.trace(e, msg);
                 return;
             },
             ErrorType::MissingNewline => format!("missing newline"),
@@ -152,13 +150,13 @@ impl TestDiag {
             _ => format!(""),
         };
         self.common(msg.span, Color::Red, "error: ", &text);
-        self.trace(msg);
+        self.trace(e, msg);
     }
 
-    fn trace(&self, msg: &Error) {
+    fn trace(&self, e: &Elang, msg: &Error) {
         for ctx in &msg.context {
             let s = |s| Span::new(s, s + 1);
-            let e = |s| self.e.span(s);
+            let e = |s| e.span(s);
             let p = |s| format!("while parsing {} starting here", s);
             let q = |s| format!("while evaluating {}", s);
             let (span, txt) = match *ctx {

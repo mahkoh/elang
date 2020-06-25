@@ -33,20 +33,20 @@ fn test(dir: DirEntry) -> bool {
     );
     let codemap = Rc::new(RefCell::new(codemap));
 
-    let e = Rc::new(Elang::new());
+    let mut e = Elang::new();
 
-    let diag = TestDiag::new(codemap, e.clone());
+    let diag = TestDiag::new(codemap);
 
     let res = match e.parse(lo, &in_bytes) {
         Ok(r) => r,
-        Err(e) => {
-            diag.handle(&e);
+        Err(msg) => {
+            diag.handle(&mut e, &msg);
             return true;
         }
     };
 
-    if let Err(e) = e.eval(res) {
-        diag.handle(&e);
+    if let Err(msg) = e.eval(res) {
+        diag.handle(&mut e, &msg);
         return true;
     }
 
@@ -54,12 +54,12 @@ fn test(dir: DirEntry) -> bool {
 }
 
 struct Test {
-    e: Rc<Elang>,
+    e: Elang,
     diag: TestDiag,
 }
 
 impl Test {
-    fn compare(&self, actual: ExprId, expected: &serde_json::Value) -> bool {
+    fn compare(&mut self, actual: ExprId, expected: &serde_json::Value) -> bool {
         let expr = match self.e.resolve(actual) {
             Ok(e) => e,
             _ => return true,
@@ -147,7 +147,7 @@ impl Test {
     }
 
     fn error(&self, expr: ExprId, msg: String) {
-        self.diag.handle(&Error {
+        self.diag.handle(&self.e,&Error {
             span: self.e.span(expr),
             error: ErrorType::UnexpectedEndOfInput,
             context: vec![],

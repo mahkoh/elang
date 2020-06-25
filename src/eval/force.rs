@@ -1,17 +1,13 @@
-use crate::{
-    eval::Eval,
-    types::{
-        diagnostic::{ErrorContext, ErrorType},
-        result::{Result, ResultUtil},
-        scope::Scope,
-        span::Span,
-        tree::{Expr, ExprId, FnArg, FnType, Selector, Value, ValueType},
-    },
-    Error,
-};
+use crate::{types::{
+    diagnostic::{ErrorContext, ErrorType},
+    result::{Result, ResultUtil},
+    scope::Scope,
+    span::Span,
+    tree::{Expr, ExprId, FnArg, FnType, Selector, Value, ValueType},
+}, Error, Elang};
 use std::rc::Rc;
 
-impl Eval {
+impl Elang {
     /// Forces (evaluates) the expression.
     ///
     /// = Remarks

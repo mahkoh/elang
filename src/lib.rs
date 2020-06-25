@@ -23,6 +23,7 @@ pub mod util;
 
 pub struct Elang {
     store: Store,
+    force_trace: Vec<ExprId>,
 }
 
 /// Core methods
@@ -31,6 +32,7 @@ impl Elang {
     pub fn new() -> Self {
         Self {
             store: Store::new(),
+            force_trace: vec!(),
         }
     }
 
@@ -73,10 +75,6 @@ impl Elang {
         })
     }
 
-    fn eval_(&self) -> eval::Eval {
-        eval::Eval::new_(self.store.clone())
-    }
-
     /// Evaluates the expression
     ///
     /// After this function returns successfully, `expr_id` has been modified such that
@@ -102,8 +100,8 @@ impl Elang {
     /// * `e` is already borrowed when this function is called,
     ///
     /// this will be interpreted as infinite recursion and an error will be returned.
-    pub fn eval(&self, expr_id: ExprId) -> Result {
-        self.eval_().force(expr_id)
+    pub fn eval(&mut self, expr_id: ExprId) -> Result {
+        self.force(expr_id)
     }
 
     pub fn add_expr(&self, span: Span, value: Value) -> ExprId {
@@ -125,43 +123,43 @@ impl Elang {
 
 /// Utility methods
 impl Elang {
-    pub fn resolve(&self, expr_id: ExprId) -> Result<Rc<Expr>> {
-        self.eval_().resolve_(expr_id)
+    pub fn resolve(&mut self, expr_id: ExprId) -> Result<Rc<Expr>> {
+        self.resolve_(expr_id)
     }
 
     pub fn span(&self, expr_id: ExprId) -> Span {
-        self.eval_().span_(expr_id)
+        self.span_(expr_id)
     }
 
-    pub fn get_string(&self, expr_id: ExprId) -> Result<StrId> {
-        self.eval_().get_string_(expr_id)
+    pub fn get_string(&mut self, expr_id: ExprId) -> Result<StrId> {
+        self.get_string_(expr_id)
     }
 
-    pub fn get_bool(&self, expr_id: ExprId) -> Result<bool> {
-        self.eval_().get_bool_(expr_id)
+    pub fn get_bool(&mut self, expr_id: ExprId) -> Result<bool> {
+        self.get_bool_(expr_id)
     }
 
-    pub fn get_int(&self, expr_id: ExprId) -> Result<i64> {
-        self.eval_().get_int_(expr_id)
+    pub fn get_int(&mut self, expr_id: ExprId) -> Result<i64> {
+        self.get_int_(expr_id)
     }
 
-    pub fn get_list(&self, expr_id: ExprId) -> Result<Rc<[ExprId]>> {
-        self.eval_().get_list_(expr_id)
+    pub fn get_list(&mut self, expr_id: ExprId) -> Result<Rc<[ExprId]>> {
+        self.get_list_(expr_id)
     }
 
-    pub fn get_field(&self, expr_id: ExprId, selector: Selector) -> Result<ExprId> {
-        self.eval_().get_field_int(expr_id, &selector, None)
+    pub fn get_field(&mut self, expr_id: ExprId, selector: Selector) -> Result<ExprId> {
+        self.get_field_int(expr_id, &selector, None)
     }
 
     pub fn get_opt_field(
-        &self,
+        &mut self,
         expr_id: ExprId,
         selector: Selector,
     ) -> Result<Option<ExprId>> {
-        self.eval_().get_opt_field_(expr_id, &selector, None)
+        self.get_opt_field_(expr_id, &selector, None)
     }
 
-    pub fn get_fields(&self, expr_id: ExprId) -> Result<Fields> {
-        self.eval_().get_fields_(expr_id)
+    pub fn get_fields(&mut self, expr_id: ExprId) -> Result<Fields> {
+        self.get_fields_(expr_id)
     }
 }
