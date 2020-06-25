@@ -19,7 +19,7 @@ pub struct Eval {
 }
 
 impl Eval {
-    pub fn new(store: Store) -> Self {
+    pub fn new_(store: Store) -> Self {
         Eval {
             store,
             force_trace: vec![],
@@ -27,8 +27,8 @@ impl Eval {
     }
 
     fn equal_to(&mut self, left: ExprId, right: ExprId) -> Result<bool> {
-        let l = self.resolve(left)?;
-        let r = self.resolve(right)?;
+        let l = self.resolve_(left)?;
+        let r = self.resolve_(right)?;
         let l = l.val.borrow();
         let r = r.val.borrow();
         match (&*l, &*r) {
@@ -49,7 +49,7 @@ impl Eval {
     /// After forcing, this expression can be a reference to a datatype expression. This
     /// function recursively resolves these references and returns the datatype
     /// expression.
-    pub fn resolve(&mut self, mut expr: ExprId) -> Result<Rc<Expr>> {
+    pub fn resolve_(&mut self, mut expr: ExprId) -> Result<Rc<Expr>> {
         self.force(expr)?;
 
         let mut e;
@@ -63,7 +63,7 @@ impl Eval {
         Ok(e)
     }
 
-    pub fn span(&self, expr: ExprId) -> Span {
+    pub fn span_(&self, expr: ExprId) -> Span {
         self.store.get_expr(expr).span
     }
 

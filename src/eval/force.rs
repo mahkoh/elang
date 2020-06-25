@@ -161,7 +161,7 @@ impl Eval {
             };
         }
 
-        let int = |slf: &mut Self, v| match slf.get_int(v) {
+        let int = |slf: &mut Self, v| match slf.get_int_(v) {
             Ok(v) => Ok(v),
             Err(mut e) => {
                 e.context.push(ctx);
@@ -217,8 +217,8 @@ impl Eval {
                 }
             }
         }
-        let int = |slf: &mut Self, v| get(slf.get_int(v), ctx);
-        let bol = |slf: &mut Self, v| get(slf.get_bool(v), ctx);
+        let int = |slf: &mut Self, v| get(slf.get_int_(v), ctx);
+        let bol = |slf: &mut Self, v| get(slf.get_bool_(v), ctx);
 
         let new = match *val {
             Value::Gt(l, r) => Value::Bool(int(self, l)? > int(self, r)?),
@@ -236,7 +236,7 @@ impl Eval {
                 let mut path = &self.get_path(path).ctx(ctx)?[..];
                 while !path.is_empty() {
                     let selector = self.get_selector(path[0]).ctx(ctx)?;
-                    set = match self.get_opt_field(set, &selector, None).ctx(ctx)? {
+                    set = match self.get_opt_field_(set, &selector, None).ctx(ctx)? {
                         Some(f) => f,
                         None => break,
                     };
@@ -257,8 +257,8 @@ impl Eval {
         let ctx = ErrorContext::EvalOverlay(expr.id);
 
         let new = if let Value::Overlay(bottom, top) = *val {
-            let bottom = self.get_fields(bottom).ctx(ctx)?;
-            let top = self.get_fields(top).ctx(ctx)?;
+            let bottom = self.get_fields_(bottom).ctx(ctx)?;
+            let top = self.get_fields_(top).ctx(ctx)?;
 
             let mut new = (*bottom).clone();
 
@@ -283,16 +283,16 @@ impl Eval {
         let ctx = ErrorContext::EvalConcat(expr.id);
 
         let new = if let Value::Concat(l, r) = *val {
-            let left = self.resolve(l)?;
+            let left = self.resolve_(l)?;
             let left = left.val.borrow();
             match *left {
                 Value::String(left) => {
-                    let right = self.get_string(r).ctx(ctx)?;
+                    let right = self.get_string_(r).ctx(ctx)?;
                     let new = self.store.concat(left, right);
                     Value::String(new)
                 }
                 Value::List(ref left) => {
-                    let right = self.get_list(r).ctx(ctx)?;
+                    let right = self.get_list_(r).ctx(ctx)?;
                     if right.len() == 0 {
                         Value::List(left.clone())
                     } else {
@@ -542,7 +542,7 @@ impl Eval {
         let ctx = ErrorContext::EvalCond(expr.id);
 
         let new = if let Value::Cond(cond, then, el) = *val {
-            if self.get_bool(cond).ctx(ctx)? {
+            if self.get_bool_(cond).ctx(ctx)? {
                 self.force(then)?;
                 then
             } else {
@@ -564,7 +564,7 @@ impl Eval {
             Value::Stringify(e) => e,
             _ => unreachable!(),
         };
-        let dst = self.resolve(e)?;
+        let dst = self.resolve_(e)?;
         let dst = dst.val.borrow();
         match *dst {
             Value::String(..) => *val = Value::Resolved(None, e),
@@ -622,7 +622,7 @@ impl Eval {
                 scope.bind(i, arg);
             }
             FnArg::Pat(at, fields, wild) => {
-                let arg_fields = self.get_fields(arg)?;
+                let arg_fields = self.get_fields_(arg)?;
                 if !wild {
                     for &id in arg_fields.keys() {
                         if fields.get(&id).is_none() {
@@ -700,7 +700,7 @@ impl Eval {
             while !path.is_empty() {
                 let selector = self.get_selector(path[0]).ctx(ctx)?;
                 set = match self
-                    .get_opt_field(set, &selector, Some(&mut bad_path))
+                    .get_opt_field_(set, &selector, Some(&mut bad_path))
                     .ctx(ctx)?
                 {
                     Some(f) => f,
@@ -711,7 +711,7 @@ impl Eval {
             }
 
             if !path.is_empty() {
-                let err_span = Span::new(self.span(set).lo, self.span(last_ok).hi);
+                let err_span = Span::new(self.span_(set).lo, self.span_(last_ok).hi);
                 if let Some(alt) = alt {
                     self.force(alt)?;
                     alt

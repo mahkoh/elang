@@ -74,7 +74,7 @@ impl Elang {
     }
 
     fn eval_(&self) -> eval::Eval {
-        eval::Eval::new(self.store.clone())
+        eval::Eval::new_(self.store.clone())
     }
 
     /// Evaluates the expression
@@ -126,31 +126,31 @@ impl Elang {
 /// Utility methods
 impl Elang {
     pub fn resolve(&self, expr_id: ExprId) -> Result<Rc<Expr>> {
-        self.eval_().resolve(expr_id)
+        self.eval_().resolve_(expr_id)
     }
 
     pub fn span(&self, expr_id: ExprId) -> Span {
-        self.eval_().span(expr_id)
+        self.eval_().span_(expr_id)
     }
 
     pub fn get_string(&self, expr_id: ExprId) -> Result<StrId> {
-        self.eval_().get_string(expr_id)
+        self.eval_().get_string_(expr_id)
     }
 
     pub fn get_bool(&self, expr_id: ExprId) -> Result<bool> {
-        self.eval_().get_bool(expr_id)
+        self.eval_().get_bool_(expr_id)
     }
 
     pub fn get_int(&self, expr_id: ExprId) -> Result<i64> {
-        self.eval_().get_int(expr_id)
+        self.eval_().get_int_(expr_id)
     }
 
     pub fn get_list(&self, expr_id: ExprId) -> Result<Rc<[ExprId]>> {
-        self.eval_().get_list(expr_id)
+        self.eval_().get_list_(expr_id)
     }
 
     pub fn get_field(&self, expr_id: ExprId, selector: Selector) -> Result<ExprId> {
-        self.eval_().get_field(expr_id, &selector, None)
+        self.eval_().get_field_int(expr_id, &selector, None)
     }
 
     pub fn get_opt_field(
@@ -158,10 +158,10 @@ impl Elang {
         expr_id: ExprId,
         selector: Selector,
     ) -> Result<Option<ExprId>> {
-        self.eval_().get_opt_field(expr_id, &selector, None)
+        self.eval_().get_opt_field_(expr_id, &selector, None)
     }
 
     pub fn get_fields(&self, expr_id: ExprId) -> Result<Fields> {
-        self.eval_().get_fields(expr_id)
+        self.eval_().get_fields_(expr_id)
     }
 }

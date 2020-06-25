@@ -19,8 +19,8 @@ impl Eval {
     ///
     /// If the datatype expression is not a boolean, an error message is printed and an
     /// error is returned.
-    pub fn get_bool(&mut self, expr: ExprId) -> Result<bool> {
-        let res = self.resolve(expr)?;
+    pub fn get_bool_(&mut self, expr: ExprId) -> Result<bool> {
+        let res = self.resolve_(expr)?;
         let val = res.val.borrow();
         match *val {
             Value::Bool(b) => Ok(b),
@@ -31,8 +31,8 @@ impl Eval {
         }
     }
 
-    pub fn get_string(&mut self, expr: ExprId) -> Result<StrId> {
-        let res = self.resolve(expr)?;
+    pub fn get_string_(&mut self, expr: ExprId) -> Result<StrId> {
+        let res = self.resolve_(expr)?;
         let val = res.val.borrow();
         match *val {
             Value::String(s) => Ok(s),
@@ -53,8 +53,8 @@ impl Eval {
     ///
     /// If the datatype expression is not an integer, an error message is printed and an
     /// error is returned.
-    pub fn get_int(&mut self, expr: ExprId) -> Result<i64> {
-        let res = self.resolve(expr)?;
+    pub fn get_int_(&mut self, expr: ExprId) -> Result<i64> {
+        let res = self.resolve_(expr)?;
         let val = res.val.borrow();
         match *val {
             Value::Integer(i) => Ok(i),
@@ -75,8 +75,8 @@ impl Eval {
     ///
     /// If the datatype expression is not a list, an error message is printed and an error
     /// is returned.
-    pub fn get_list(&mut self, expr: ExprId) -> Result<Rc<[ExprId]>> {
-        let res = self.resolve(expr)?;
+    pub fn get_list_(&mut self, expr: ExprId) -> Result<Rc<[ExprId]>> {
+        let res = self.resolve_(expr)?;
         let val = res.val.borrow();
         match *val {
             Value::List(ref l) => Ok(l.clone()),
@@ -102,7 +102,7 @@ impl Eval {
     /// If the datatype expression is not a set or an overlay, an error message is printed
     /// and an error is returned. If the set does not contain the field, `None` is
     /// returned but no error is printed.
-    pub fn get_opt_field(
+    pub fn get_opt_field_(
         &mut self,
         expr: ExprId,
         selector: &Selector,
@@ -121,7 +121,7 @@ impl Eval {
 
         let sel = match *selector {
             Selector::Expr(e) => {
-                let expr = self.resolve(e)?;
+                let expr = self.resolve_(e)?;
                 let res = expr.val.borrow();
                 match *res {
                     Value::String(s) => Selector::Ident(s),
@@ -148,14 +148,14 @@ impl Eval {
         self.get_field_(expr, &sel, out)
     }
 
-    pub fn get_field(
+    pub fn get_field_int(
         &mut self,
         expr: ExprId,
         selector: &Selector,
         out: Option<&mut Selector>,
     ) -> Result<ExprId> {
         let mut eval_sel = Selector::Integer(0);
-        let field = self.get_opt_field(expr, selector, Some(&mut eval_sel))?;
+        let field = self.get_opt_field_(expr, selector, Some(&mut eval_sel))?;
 
         if let Some(f) = field {
             return Ok(f);
@@ -180,7 +180,7 @@ impl Eval {
         sel: &Selector,
         out: Option<&mut Selector>,
     ) -> Result<Option<ExprId>> {
-        let res = self.resolve(expr)?;
+        let res = self.resolve_(expr)?;
         let val = res.val.borrow();
 
         match (&*val, sel) {
@@ -221,8 +221,8 @@ impl Eval {
     ///
     /// If the datatype expression is not a set, an error message is printed and an error
     /// is returned.
-    pub fn get_fields(&mut self, expr: ExprId) -> Result<Fields> {
-        let res = self.resolve(expr)?;
+    pub fn get_fields_(&mut self, expr: ExprId) -> Result<Fields> {
+        let res = self.resolve_(expr)?;
         let val = res.val.borrow();
         match *val {
             Value::Set(ref fields, _) => Ok(fields.clone()),
@@ -245,7 +245,7 @@ impl Eval {
     /// If the datatype expression is not a function, an error message is printed and an
     /// error is returned.
     pub fn get_func(&mut self, expr: ExprId) -> Result<FnType> {
-        let res = self.resolve(expr)?;
+        let res = self.resolve_(expr)?;
         let val = res.val.borrow();
         match *val {
             Value::Fn(ref f) => Ok(f.clone()),

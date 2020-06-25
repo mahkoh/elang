@@ -146,7 +146,7 @@ impl Test {
         false
     }
 
-    fn error(&self, mut expr: ExprId, msg: String) {
+    fn error(&self, expr: ExprId, msg: String) {
         self.diag.handle(&Error {
             span: self.e.span(expr),
             error: ErrorType::UnexpectedEndOfInput,

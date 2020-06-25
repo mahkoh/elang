@@ -76,21 +76,21 @@ impl TestDiag {
                 ),
                 TokenAlternative::List(l) => {
                     let mut s = format!("unexpected token. expected ");
-                    match l {
+                    let _ = match l {
                         &[t] => {
-                            write!(s, "`{}`", t.as_str());
+                            write!(s, "`{}`", t.as_str())
                         }
                         &[t1, t2] => {
-                            write!(s, "`{}` or `{}`", t1.as_str(), t2.as_str());
+                            write!(s, "`{}` or `{}`", t1.as_str(), t2.as_str())
                         }
                         _ => {
                             for t in &l[..l.len() - 1] {
-                                write!(&mut s, "`{}`, ", t.as_str());
+                                let _ = write!(&mut s, "`{}`, ", t.as_str());
                             }
-                            write!(&mut s, " or `{}`", l.last().unwrap().as_str());
+                            write!(&mut s, " or `{}`", l.last().unwrap().as_str())
                         }
-                    }
-                    write!(s, ", got `{}`", act.as_str());
+                    };
+                    let _ = write!(s, ", got `{}`", act.as_str());
                     s
                 }
             }
@@ -111,17 +111,17 @@ impl TestDiag {
             },
             ErrorType::UnexpectedExpr(expected, actual) => {
                 let mut s = format!("unexpected expression. expected ");
-                match expected {
-                    &[t] => { write!(s, "`{}`", t.as_str()); },
-                    &[t1, t2] => { write!(s, "`{}` or `{}`", t1.as_str(), t2.as_str()); },
+                let _ = match expected {
+                    &[t] => write!(s, "`{}`", t.as_str()),
+                    &[t1, t2] => write!(s, "`{}` or `{}`", t1.as_str(), t2.as_str()),
                     _ => {
                         for t in &expected[..expected.len() - 1] {
-                            write!(&mut s, "`{}`, ", t.as_str());
+                            let _ = write!(&mut s, "`{}`, ", t.as_str());
                         }
-                        write!(&mut s, " or `{}`", expected.last().unwrap().as_str());
+                        write!(&mut s, " or `{}`", expected.last().unwrap().as_str())
                     }
-                }
-                write!(s, ", got `{}`", actual.as_str());
+                };
+                let _ = write!(s, ", got `{}`", actual.as_str());
                 s
             },
             ErrorType::MissingSetField(name) => {
