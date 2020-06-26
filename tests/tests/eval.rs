@@ -68,7 +68,7 @@ impl Test {
         };
         let expr = expr.value().borrow();
         match (&*expr, expected) {
-            (&ExprType::Number(ref i1), serde_json::Value::Number(i2)) => {
+            (&ExprType::Number { val: ref i1 }, serde_json::Value::Number(i2)) => {
                 let i2 = if i2.is_i64() {
                     BigRational::from((i2.as_i64().unwrap().into(), 1.into()))
                 } else if i2.is_u64() {
@@ -81,14 +81,14 @@ impl Test {
                     return true;
                 }
             }
-            (ExprType::Bool(b1), serde_json::Value::Bool(b2)) => {
+            (ExprType::Bool { val: b1 }, serde_json::Value::Bool(b2)) => {
                 if b1 != b2 {
                     self.error(actual, format!("expected {}, got {}", b2, b1));
                     return true;
                 }
             }
             (ExprType::Null, serde_json::Value::Null) => {}
-            (ExprType::List(ref l), serde_json::Value::Array(a)) => {
+            (ExprType::List { elements: ref l }, serde_json::Value::Array(a)) => {
                 if l.len() != a.len() {
                     self.error(
                         actual,
@@ -106,7 +106,7 @@ impl Test {
                 }
                 return err;
             }
-            (&ExprType::String(s1), serde_json::Value::String(ref s2)) => {
+            (&ExprType::String { content: s1 }, serde_json::Value::String(ref s2)) => {
                 let s1 = self.e.get_interned(s1);
                 if &*s1 != s2.as_bytes() {
                     self.error(
@@ -120,7 +120,7 @@ impl Test {
                     return true;
                 }
             }
-            (ExprType::Set(ref s1, false), serde_json::Value::Object(ref s2)) => {
+            (ExprType::Set { fields: ref s1, recursive: false }, serde_json::Value::Object(ref s2)) => {
                 if s1.len() != s2.len() {
                     self.error(
                         actual,

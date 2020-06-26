@@ -72,8 +72,6 @@ pub enum Token {
     Overlay,
     AndAnd,
     OrOr,
-    /// `->`
-    Implies,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -94,7 +92,6 @@ pub enum TokenType {
     Gt,
     Ident,
     If,
-    Implies,
     In,
     Inherit,
     Le,
@@ -143,7 +140,6 @@ impl TokenType {
             TokenType::Gt => ">",
             TokenType::Ident => "identifier",
             TokenType::If => "if",
-            TokenType::Implies => "->",
             TokenType::Inherit => "inherit",
             TokenType::In => "in",
             TokenType::Number => "number",
@@ -245,7 +241,6 @@ impl Token {
             Token::Overlay => false,
             Token::AndAnd => false,
             Token::OrOr => false,
-            Token::Implies => false,
         }
     }
 
@@ -267,7 +262,6 @@ impl Token {
             Token::Gt => TokenType::Gt,
             Token::Ident(..) => TokenType::Ident,
             Token::If => TokenType::If,
-            Token::Implies => TokenType::Implies,
             Token::Inherit => TokenType::Inherit,
             Token::In => TokenType::In,
             Token::Number(..) => TokenType::Number,

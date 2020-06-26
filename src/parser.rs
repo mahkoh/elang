@@ -95,7 +95,6 @@ impl<'a, 'b> Parser<'a, 'b> {
 
                 let next = self.lexer.peek(0)?;
                 let op = match next.val {
-                    Token::Implies => Op::Impl,
                     Token::OrOr => Op::Or,
                     Token::AndAnd => Op::And,
                     Token::Le => Op::Le,
@@ -136,7 +135,7 @@ impl<'a, 'b> Parser<'a, 'b> {
                         .parse_attr_path()
                         .ctx(ErrorContext::ParseTest(next.span.lo))?;
                     let span = Span::new(expr.span.lo, path.span.hi);
-                    let expr = self.spanned(span, ExprType::Test(expr.val, path.val));
+                    let expr = self.spanned(span, ExprType::Test { base: expr.val, path: path.val });
                     stack.push_expr(expr);
                 } else if op == Op::Select {
                     // Select has the form
@@ -165,7 +164,7 @@ impl<'a, 'b> Parser<'a, 'b> {
                         _ => (path.span.hi, None),
                     };
                     let span = Span::new(expr.span.lo, hi);
-                    let expr = ExprType::Select(expr.val, path.val, alt);
+                    let expr = ExprType::Select { base: expr.val, path: path.val, alt };
                     let expr = self.spanned(span, expr);
                     stack.push_expr(expr);
                 } else {
@@ -286,15 +285,15 @@ impl<'a, 'b> Parser<'a, 'b> {
         let token = self.lexer.next()?;
         let ctx = ErrorContext::ParseString(token.span.lo);
         let mut expr = match token.val {
-            Token::StringPart(s) => self.spanned(token.span, ExprType::String(s)),
+            Token::StringPart(s) => self.spanned(token.span, ExprType::String { content: s }),
             _ => unreachable!(),
         };
         let mut end = false;
         while !end {
             let tmp = self.parse_expr()?;
             let span = Span::new(expr.span.lo, tmp.span.hi);
-            let sfy = self.spanned(tmp.span, ExprType::Stringify(tmp.val));
-            expr = self.spanned(span, ExprType::Concat(expr.val, sfy.val));
+            let sfy = self.spanned(tmp.span, ExprType::Stringify { val: tmp.val });
+            expr = self.spanned(span, ExprType::Concat { lhs: expr.val, rhs: sfy.val });
 
             let tmp = self.lexer.string(true).ctx(ctx)?;
             let id = match tmp.val {
@@ -305,9 +304,9 @@ impl<'a, 'b> Parser<'a, 'b> {
                 }
                 _ => unreachable!(),
             };
-            let tmp = self.spanned(tmp.span, ExprType::String(id));
+            let tmp = self.spanned(tmp.span, ExprType::String { content: id });
             let span = Span::new(expr.span.lo, tmp.span.hi);
-            expr = self.spanned(span, ExprType::Concat(expr.val, tmp.val));
+            expr = self.spanned(span, ExprType::Concat { lhs: expr.val, rhs: tmp.val });
         }
         Ok(expr)
     }
@@ -323,16 +322,16 @@ impl<'a, 'b> Parser<'a, 'b> {
         let next = self.lexer.next()?;
         let mut span = next.span;
         let sel = match next.val {
-            Token::Ident(i) => ExprType::String(i),
+            Token::Ident(i) => ExprType::String { content: i },
             Token::Number(val, base, shift) => {
                 let num = self.parse_number(val, base, shift);
-                ExprType::Number(num)
+                ExprType::Number { val: num }
             }
             Token::LeftParen => {
                 let expr = self.parse_expr()?;
                 let ctx = ErrorContext::ParseParenthesized(next.span.lo);
                 span.hi = self.lexer.next_right_paren().ctx(ctx)?.span.hi;
-                ExprType::Resolved(None, expr.val)
+                ExprType::Resolved { ident: None, dest: expr.val }
             }
             _ => {
                 return self.error(
@@ -375,7 +374,7 @@ impl<'a, 'b> Parser<'a, 'b> {
         }
         path.shrink_to_fit();
         let span = Span::new(first.span.lo, last.span.hi);
-        let expr = ExprType::Path(Rc::from(path.into_boxed_slice()));
+        let expr = ExprType::Path { path: Rc::from(path.into_boxed_slice()) };
         Ok(self.spanned(span, expr))
     }
 
@@ -416,7 +415,7 @@ impl<'a, 'b> Parser<'a, 'b> {
                 let arg = FnParam::Ident { param_name };
                 let span = Span::new(first.span.lo, body.span.hi);
                 let expr =
-                    ExprType::Fn(FnType::Normal { param: Spanned::new(first.span, arg), body: body.val });
+                    ExprType::Fn { func: FnType::Normal { param: Spanned::new(first.span, arg), body: body.val } };
                 return Ok(self.spanned(span, expr));
             }
 
@@ -440,7 +439,7 @@ impl<'a, 'b> Parser<'a, 'b> {
                 };
                 let span = Span::new(first.span.lo, body.span.hi);
                 let expr =
-                    ExprType::Fn(FnType::Normal { param: Spanned::new(arg_span, arg), body: body.val });
+                    ExprType::Fn { func: FnType::Normal { param: Spanned::new(arg_span, arg), body: body.val } };
                 return Ok(self.spanned(span, expr));
             }
 
@@ -459,7 +458,7 @@ impl<'a, 'b> Parser<'a, 'b> {
             };
             let span = Span::new(pat_span.lo, body.span.hi);
             let expr =
-                ExprType::Fn(FnType::Normal { param: Spanned::new(pat_span, arg), body: body.val });
+                ExprType::Fn { func: FnType::Normal { param: Spanned::new(pat_span, arg), body: body.val } };
             return Ok(self.spanned(span, expr));
         }
 
@@ -582,13 +581,13 @@ impl<'a, 'b> Parser<'a, 'b> {
         let t = self.lexer.next().unwrap();
         let expr = match t.val {
             Token::Number(val, base, shift) => {
-                ExprType::Number(self.parse_number(val, base, shift))
+                ExprType::Number { val: self.parse_number(val, base, shift) }
             }
-            Token::Ident(i) => ExprType::Ident(i),
-            Token::True => ExprType::Bool(true),
-            Token::False => ExprType::Bool(false),
+            Token::Ident(name) => ExprType::Ident { name },
+            Token::True => ExprType::Bool { val: true },
+            Token::False => ExprType::Bool { val: false },
             Token::Null => ExprType::Null,
-            Token::String(s) => ExprType::String(s),
+            Token::String(content) => ExprType::String { content },
             _ => unreachable!(),
         };
         Ok(self.spanned(t.span, expr))
@@ -653,7 +652,7 @@ impl<'a, 'b> Parser<'a, 'b> {
         bindings.shrink_to_fit();
         let expr = self.parse_expr()?;
         let span = Span::new(let_.span.lo, expr.span.hi);
-        let expr = ExprType::Let(Rc::new(bindings), expr.val);
+        let expr = ExprType::Let { fields: Rc::new(bindings), body: expr.val };
         Ok(self.spanned(span, expr))
     }
 
@@ -682,7 +681,7 @@ impl<'a, 'b> Parser<'a, 'b> {
         self.lexer.next_else().ctx(ctx)?;
         let e3 = self.parse_expr()?;
         let span = Span::new(if_.span.lo, e3.span.hi);
-        Ok(self.spanned(span, ExprType::Cond(e1.val, e2.val, e3.val)))
+        Ok(self.spanned(span, ExprType::Cond { cond: e1.val, then: e2.val, el: e3.val }))
     }
 
     /// Parses a list.
@@ -733,7 +732,7 @@ impl<'a, 'b> Parser<'a, 'b> {
         }
         let end = self.lexer.next().unwrap();
         let span = Span::new(start.span.lo, end.span.hi);
-        Ok(self.spanned(span, ExprType::List(Rc::from(els.into_boxed_slice()))))
+        Ok(self.spanned(span, ExprType::List { elements: Rc::from(els.into_boxed_slice()) }))
     }
 
     /// Parses a set.
@@ -872,7 +871,7 @@ impl<'a, 'b> Parser<'a, 'b> {
         };
         let span = Span::new(opening.span.lo, closing.span.hi);
         fields.shrink_to_fit();
-        Ok(self.spanned(span, ExprType::Set(Rc::new(fields), rec)))
+        Ok(self.spanned(span, ExprType::Set { fields: Rc::new(fields), recursive: rec }))
     }
 
     fn error<T>(&self, span: Span, error: ErrorType) -> Result<T> {

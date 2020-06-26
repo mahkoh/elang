@@ -66,83 +66,165 @@ impl Expr {
 #[derive(Clone, Debug)]
 pub enum ExprType {
     /// `e1 + e2`
-    Add(ExprId, ExprId),
+    Add {
+        lhs: ExprId,
+        rhs: ExprId,
+    },
     /// `e1 && e2`
-    And(ExprId, ExprId),
+    And {
+        lhs: ExprId,
+        rhs: ExprId,
+    },
     /// `e1 e2`
-    Apl(ExprId, ExprId),
+    Apl {
+        func: ExprId,
+        arg: ExprId,
+    },
     /// A boolean
-    Bool(bool),
+    Bool {
+        val: bool,
+    },
     /// `e1 ++ e2`
-    Concat(ExprId, ExprId),
+    Concat {
+        lhs: ExprId,
+        rhs: ExprId,
+    },
     /// `if e1 then e2 else e3`
-    Cond(ExprId, ExprId, ExprId),
+    Cond {
+        cond: ExprId,
+        then: ExprId,
+        el: ExprId,
+    },
     /// `e1 / e2`
-    Div(ExprId, ExprId),
+    Div {
+        numer: ExprId,
+        denom: ExprId,
+    },
     /// `e1 == e2`
-    Eq(ExprId, ExprId),
+    Eq {
+        lhs: ExprId,
+        rhs: ExprId,
+    },
     /// A function
-    Fn(FnType),
+    Fn {
+        func: FnType,
+    },
     /// `e1 >= e2`
-    Ge(ExprId, ExprId),
+    Ge {
+        lhs: ExprId,
+        rhs: ExprId,
+    },
     /// `e1 > e2`
-    Gt(ExprId, ExprId),
+    Gt {
+        lhs: ExprId,
+        rhs: ExprId,
+    },
     /// An identifier
-    Ident(StrId),
-    /// `e1 -> e2`
-    Impl(ExprId, ExprId),
+    Ident {
+        name: StrId,
+    },
     /// `inherit`
     ///
     /// This only appears in the fields of a set
     Inherit,
     /// `e1 <= e2`
-    Le(ExprId, ExprId),
+    Le {
+        lhs: ExprId,
+        rhs: ExprId,
+    },
     /// `let fields in e1`
-    Let(Fields, ExprId),
+    Let {
+        fields: Fields,
+        body: ExprId,
+    },
     /// `[e1, e2, e3]`
-    List(Rc<[ExprId]>),
+    List {
+        elements: Rc<[ExprId]>,
+    },
     /// `e1 < e2`
-    Lt(ExprId, ExprId),
+    Lt {
+        lhs: ExprId,
+        rhs: ExprId,
+    },
     /// `e1 % e2`
-    Mod(ExprId, ExprId),
+    Mod {
+        numer: ExprId,
+        denom: ExprId,
+    },
     /// `e1 * e2`
-    Mul(ExprId, ExprId),
+    Mul {
+        lhs: ExprId,
+        rhs: ExprId,
+    },
     /// `e1 != e2`
-    Ne(ExprId, ExprId),
+    Ne {
+        lhs: ExprId,
+        rhs: ExprId,
+    },
     /// `-e1`
-    Neg(ExprId),
+    Neg {
+        val: ExprId,
+    },
     /// `!e1`
-    Not(ExprId),
+    Not {
+        val: ExprId,
+    },
     /// `null`
     Null,
     /// A number
-    Number(Rc<BigRational>),
+    Number {
+        val: Rc<BigRational>,
+    },
     /// `e1 || e2`
-    Or(ExprId, ExprId),
+    Or {
+        lhs: ExprId,
+        rhs: ExprId,
+    },
     /// `e1 \\ e2`
-    Overlay(ExprId, ExprId),
+    Overlay {
+        lower: ExprId,
+        upper: ExprId,
+    },
     /// `e1.e2.e3`
-    Path(Rc<[ExprId]>),
+    Path {
+        path: Rc<[ExprId]>,
+    },
     /// A reference to another expression
-    Resolved(Option<StrId>, ExprId),
+    Resolved {
+        ident: Option<StrId>,
+        dest: ExprId,
+    },
     /// `e1.e2 or e3`
-    ///
-    /// `e2` is a `Value::Path`.
-    Select(ExprId, ExprId, Option<ExprId>),
+    Select {
+        base: ExprId,
+        path: ExprId,
+        alt: Option<ExprId>,
+    },
     /// `rec { i = e1 }`
     ///
     /// The boolean is true iff the set is recursive
-    Set(Fields, bool),
+    Set {
+        fields: Fields,
+        recursive: bool,
+    },
     /// A string
-    String(StrId),
+    String {
+        content: StrId,
+    },
     /// `"\{e1}"`
-    Stringify(ExprId),
+    Stringify {
+        val: ExprId,
+    },
     /// `e1 - e2`
-    Sub(ExprId, ExprId),
+    Sub {
+        lhs: ExprId,
+        rhs: ExprId,
+    },
     /// `e1 ? e2`
-    ///
-    /// `e2` is a `Value::Path`
-    Test(ExprId, ExprId),
+    Test {
+        base: ExprId,
+        path: ExprId,
+    },
 }
 
 /// The type of a value of an expression
@@ -273,41 +355,40 @@ impl ExprKind {
 impl ExprType {
     pub fn kind(&self) -> ExprKind {
         match *self {
-            ExprType::Add(..) => ExprKind::Add,
-            ExprType::And(..) => ExprKind::And,
-            ExprType::Apl(..) => ExprKind::Apl,
-            ExprType::Bool(..) => ExprKind::Bool,
-            ExprType::Concat(..) => ExprKind::Concat,
-            ExprType::Cond(..) => ExprKind::Cond,
-            ExprType::Div(..) => ExprKind::Div,
-            ExprType::Eq(..) => ExprKind::Eq,
-            ExprType::Fn(..) => ExprKind::Fn,
-            ExprType::Ge(..) => ExprKind::Ge,
-            ExprType::Gt(..) => ExprKind::Gt,
-            ExprType::Ident(..) => ExprKind::Ident,
-            ExprType::Impl(..) => ExprKind::Impl,
+            ExprType::Add { .. } => ExprKind::Add,
+            ExprType::And { .. } => ExprKind::And,
+            ExprType::Apl { .. } => ExprKind::Apl,
+            ExprType::Bool { .. } => ExprKind::Bool,
+            ExprType::Concat { .. } => ExprKind::Concat,
+            ExprType::Cond { .. } => ExprKind::Cond,
+            ExprType::Div { .. } => ExprKind::Div,
+            ExprType::Eq { .. } => ExprKind::Eq,
+            ExprType::Fn { .. } => ExprKind::Fn,
+            ExprType::Ge { .. } => ExprKind::Ge,
+            ExprType::Gt { .. } => ExprKind::Gt,
+            ExprType::Ident { .. } => ExprKind::Ident,
             ExprType::Inherit => ExprKind::Inherit,
-            ExprType::Number(..) => ExprKind::Number,
-            ExprType::Le(..) => ExprKind::Le,
-            ExprType::Let(..) => ExprKind::Let,
-            ExprType::List(..) => ExprKind::List,
-            ExprType::Lt(..) => ExprKind::Lt,
-            ExprType::Mod(..) => ExprKind::Mod,
-            ExprType::Mul(..) => ExprKind::Mul,
-            ExprType::Ne(..) => ExprKind::Ne,
-            ExprType::Neg(..) => ExprKind::Neg,
-            ExprType::Not(..) => ExprKind::Not,
+            ExprType::Number { .. } => ExprKind::Number,
+            ExprType::Le { .. } => ExprKind::Le,
+            ExprType::Let { .. } => ExprKind::Let,
+            ExprType::List { .. } => ExprKind::List,
+            ExprType::Lt { .. } => ExprKind::Lt,
+            ExprType::Mod { .. } => ExprKind::Mod,
+            ExprType::Mul { .. } => ExprKind::Mul,
+            ExprType::Ne { .. } => ExprKind::Ne,
+            ExprType::Neg { .. } => ExprKind::Neg,
+            ExprType::Not { .. } => ExprKind::Not,
             ExprType::Null => ExprKind::Null,
-            ExprType::Or(..) => ExprKind::Or,
-            ExprType::Overlay(..) => ExprKind::Overlay,
-            ExprType::Path(..) => ExprKind::Path,
-            ExprType::Resolved(..) => ExprKind::Resolved,
-            ExprType::Select(..) => ExprKind::Select,
-            ExprType::Set(..) => ExprKind::Set,
-            ExprType::Stringify(..) => ExprKind::Stringify,
-            ExprType::String(..) => ExprKind::String,
-            ExprType::Sub(..) => ExprKind::Sub,
-            ExprType::Test(..) => ExprKind::Test,
+            ExprType::Or { .. } => ExprKind::Or,
+            ExprType::Overlay { .. } => ExprKind::Overlay,
+            ExprType::Path { .. } => ExprKind::Path,
+            ExprType::Resolved { .. } => ExprKind::Resolved,
+            ExprType::Select { .. } => ExprKind::Select,
+            ExprType::Set { .. } => ExprKind::Set,
+            ExprType::Stringify { .. } => ExprKind::Stringify,
+            ExprType::String { .. } => ExprKind::String,
+            ExprType::Sub { .. } => ExprKind::Sub,
+            ExprType::Test { .. } => ExprKind::Test,
         }
     }
 }

@@ -9,7 +9,7 @@ pub use crate::{
         span::{Span, Spanned},
         store::StrId,
         token::TokenType,
-        tree::{Expr, ExprId, ExprKind, ExprType, Fields, FnParam, FnType},
+        tree::{Expr, ExprId, ExprKind, ExprType, Fields, FnParam, FnType, BuiltInFn},
         value::Value,
     },
 };

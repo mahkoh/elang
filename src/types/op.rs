@@ -1,8 +1,6 @@
 /// An operation on an expression.
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum Op {
-    /// Implication, `(e1 => e2) <=> (!e1 || e2)`
-    Impl,
     Or,
     And,
     Le,
@@ -42,7 +40,6 @@ impl Op {
     /// precedence.
     pub fn precedence(self) -> i8 {
         match self {
-            Op::Impl => 0,
             Op::Or => 1,
             Op::And => 2,
 
@@ -74,7 +71,6 @@ impl Op {
     /// Returns whether the operator is left-associative.
     pub fn left_assoc(self) -> bool {
         match self {
-            Op::Impl => false,
             Op::Or => false,
             Op::And => false,
             Op::Le => false,

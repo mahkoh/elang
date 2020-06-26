@@ -12,7 +12,7 @@ use std::rc::Rc;
 
 macro_rules! bi {
     ($f:expr) => {
-        ExprType::Fn(FnType::BuiltIn { func: Rc::new($f) })
+        ExprType::Fn { func: FnType::BuiltIn { func: Rc::new($f) } }
     };
 }
 
@@ -23,7 +23,7 @@ pub fn to_list() -> Rc<dyn BuiltInFn> {
         for &val in fields.values() {
             list.push(val);
         }
-        Ok(ExprType::List(Rc::from(list.into_boxed_slice())))
+        Ok(ExprType::List { elements: Rc::from(list.into_boxed_slice()) })
     };
     Rc::new(f)
 }
@@ -32,7 +32,7 @@ pub fn assert() -> Rc<dyn BuiltInFn> {
     let f = move |eval: &mut Elang, cond: Rc<Expr>| {
         if eval.get_bool(cond.id)? {
             let f = move |eval: &mut Elang, tail: Rc<Expr>| {
-                Ok(ExprType::Resolved(None, tail.id))
+                Ok(ExprType::Resolved { ident: None, dest: tail.id })
             };
             Ok(bi!(f))
         } else {
@@ -52,10 +52,10 @@ pub fn contains() -> Rc<dyn BuiltInFn> {
         let f = move |eval: &mut Elang, val: Rc<Expr>| {
             for &el in list.iter() {
                 if eval.equal_to(el, val.id)? {
-                    return Ok(ExprType::Bool(true));
+                    return Ok(ExprType::Bool { val: true });
                 }
             }
-            Ok(ExprType::Bool(false))
+            Ok(ExprType::Bool { val: false })
         };
         Ok(bi!(f))
     };
@@ -69,12 +69,12 @@ pub fn filter() -> Rc<dyn BuiltInFn> {
             let mut nlist = Vec::with_capacity(list.len());
             for &el in list.iter() {
                 let span = Span::new(olist.span.lo, cond.span.hi);
-                let expr = eval.add_expr(span, ExprType::Apl(cond.id, el));
+                let expr = eval.add_expr(span, ExprType::Apl { func: cond.id, arg: el });
                 if eval.get_bool(expr)? {
                     nlist.push(el);
                 }
             }
-            Ok(ExprType::List(Rc::from(nlist.into_boxed_slice())))
+            Ok(ExprType::List { elements: Rc::from(nlist.into_boxed_slice()) })
         };
         Ok(bi!(f))
     };

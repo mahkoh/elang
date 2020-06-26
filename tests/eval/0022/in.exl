@@ -14,7 +14,6 @@ let
     m = a <= a,
     n = a == a,
     o = a != a,
-    p = g -> !g,
     q = "\{a}" ++ "\{a}",
     r = (x: x + a) 1,
     s = if a == 1 then 2 else 3,
@@ -28,4 +27,4 @@ let
         c = b,
     }.c,
 in
-    [b, c, d, e, f, h, i, j, k, l, m, n, o, p, q, r, s, t, u]
+    [b, c, d, e, f, h, i, j, k, l, m, n, o, q, r, s, t, u]

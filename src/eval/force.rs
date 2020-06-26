@@ -39,72 +39,71 @@ impl Elang {
         let borrow = expr.val.borrow();
 
         match *borrow {
-            ExprType::Number(..)
-            | ExprType::Ident(..)
-            | ExprType::Bool(..)
+            ExprType::Number { .. }
+            | ExprType::Ident { .. }
+            | ExprType::Bool { .. }
             | ExprType::Null
-            | ExprType::List(..)
-            | ExprType::Fn(..)
-            | ExprType::String(..)
-            | ExprType::Set(_, false)
+            | ExprType::List { .. }
+            | ExprType::Fn { .. }
+            | ExprType::String { .. }
+            | ExprType::Set { recursive: false, .. }
             | ExprType::Inherit => {
                 // Nothing to do
                 Ok(())
             }
-            ExprType::Resolved(_, dst) => self.force(dst),
-            ExprType::Add(..)
-            | ExprType::Sub(..)
-            | ExprType::Mul(..)
-            | ExprType::Div(..)
-            | ExprType::Mod(..)
-            | ExprType::Neg(..) => {
+            ExprType::Resolved { dest, .. } => self.force(dest),
+            ExprType::Add { .. }
+            | ExprType::Sub { .. }
+            | ExprType::Mul { .. }
+            | ExprType::Div { .. }
+            | ExprType::Mod { .. }
+            | ExprType::Neg { .. } => {
                 drop(borrow);
                 self.force_int(&expr)
             }
-            ExprType::And(..)
-            | ExprType::Or(..)
-            | ExprType::Not(..)
-            | ExprType::Gt(..)
-            | ExprType::Lt(..)
-            | ExprType::Ge(..)
-            | ExprType::Le(..)
-            | ExprType::Test(..)
-            | ExprType::Eq(..)
-            | ExprType::Ne(..)
-            | ExprType::Impl(..) => {
+            ExprType::And { .. }
+            | ExprType::Or { .. }
+            | ExprType::Not { .. }
+            | ExprType::Gt{ .. }
+            | ExprType::Lt{ .. }
+            | ExprType::Ge{ .. }
+            | ExprType::Le{ .. }
+            | ExprType::Test{ .. }
+            | ExprType::Eq{ .. }
+            | ExprType::Ne{ .. } => {
                 drop(borrow);
                 self.force_bool(&expr)
             }
-            ExprType::Concat(..) => {
+            ExprType::Concat{ .. } => {
                 drop(borrow);
                 self.force_concat(&expr)
             }
-            ExprType::Overlay(..) => {
+            ExprType::Overlay{ .. } => {
                 drop(borrow);
                 self.force_overlay(&expr)
             }
-            ExprType::Select(..) => {
+            ExprType::Select{ .. } => {
                 drop(borrow);
                 self.force_select(&expr)
             }
-            ExprType::Apl(..) => {
+            ExprType::Apl { .. } => {
                 drop(borrow);
                 self.force_apl(&expr)
             }
-            ExprType::Let(..) | ExprType::Set(_, true) => {
+            ExprType::Let { .. } | ExprType::Set { recursive: true, .. } => {
                 drop(borrow);
                 self.force_bind(&expr, &mut Scope::new(), false);
                 self.force(expr.id)
             }
-            ExprType::Cond(..) => {
+            ExprType::Cond{ .. } => {
                 drop(borrow);
                 self.force_cond(&expr)
             }
-            ExprType::Stringify(..) => {
+            ExprType::Stringify{ .. } => {
                 drop(borrow);
                 self.force_stringify(&expr)
             }
-            ExprType::Path(..) => {
+            ExprType::Path{ .. } => {
                 self.error(expr.id, ErrorType::CannotForceExpr(borrow.kind()))
             }
         }
@@ -122,36 +121,36 @@ impl Elang {
         };
 
         let new = match *expr.val.borrow() {
-            ExprType::Add(l, r) => {
-                ExprType::Number(Rc::new(&*int(self, l)? + &*int(self, r)?))
+            ExprType::Add { lhs, rhs } => {
+                &*int(self, lhs)? + &*int(self, rhs)?
             }
-            ExprType::Sub(l, r) => {
-                ExprType::Number(Rc::new(&*int(self, l)? - &*int(self, r)?))
+            ExprType::Sub { lhs, rhs } => {
+                &*int(self, lhs)? - &*int(self, rhs)?
             }
-            ExprType::Mul(l, r) => {
-                ExprType::Number(Rc::new(&*int(self, l)? * &*int(self, r)?))
+            ExprType::Mul { lhs, rhs } => {
+                &*int(self, lhs)? * &*int(self, rhs)?
             }
-            ExprType::Div(l, r) => {
-                let l = int(self, l)?;
-                let rn = int(self, r)?;
-                if *rn == BigRational::zero() {
-                    return self.error(r, ErrorType::DivideByZero).ctx(ctx);
+            ExprType::Div { numer, denom } => {
+                let numer = int(self, numer)?;
+                let denom_ = int(self, denom)?;
+                if *denom_ == BigRational::zero() {
+                    return self.error(denom, ErrorType::DivideByZero).ctx(ctx);
                 }
-                ExprType::Number(Rc::new(&*l / &*rn))
+                &*numer / &*denom_
             }
-            ExprType::Mod(l, r) => {
-                let l = int(self, l)?;
-                let rn = int(self, r)?;
-                if *rn == BigRational::zero() {
-                    return self.error(r, ErrorType::DivideByZero).ctx(ctx);
+            ExprType::Mod { numer, denom } => {
+                let numer = int(self, numer)?;
+                let denom_ = int(self, denom)?;
+                if *denom_ == BigRational::zero() {
+                    return self.error(denom, ErrorType::DivideByZero).ctx(ctx);
                 }
-                ExprType::Number(Rc::new(&*l % &*rn))
+                &*numer % &*denom_
             }
-            ExprType::Neg(e) => ExprType::Number(Rc::new((*int(self, e)?).clone().neg())),
+            ExprType::Neg { val } => (*int(self, val)?).clone().neg(),
             _ => unreachable!(),
         };
 
-        *expr.val.borrow_mut() = new;
+        *expr.val.borrow_mut() = ExprType::Number { val: Rc::new(new) };
 
         Ok(())
     }
@@ -173,18 +172,17 @@ impl Elang {
         let bol = |slf: &mut Self, v| get(slf.get_bool_(v), ctx);
 
         let new = match *val {
-            ExprType::Gt(l, r) => ExprType::Bool(int(self, l)? > int(self, r)?),
-            ExprType::Lt(l, r) => ExprType::Bool(int(self, l)? < int(self, r)?),
-            ExprType::Ge(l, r) => ExprType::Bool(int(self, l)? >= int(self, r)?),
-            ExprType::Le(l, r) => ExprType::Bool(int(self, l)? <= int(self, r)?),
-            ExprType::Eq(l, r) => ExprType::Bool(self.equal_to(r, l)?),
-            ExprType::Ne(l, r) => ExprType::Bool(!self.equal_to(r, l)?),
-            ExprType::Impl(l, r) => ExprType::Bool(!bol(self, l)? || bol(self, r)?),
-            ExprType::And(l, r) => ExprType::Bool(bol(self, l)? && bol(self, r)?),
-            ExprType::Or(l, r) => ExprType::Bool(bol(self, l)? || bol(self, r)?),
-            ExprType::Not(e) => ExprType::Bool(!bol(self, e)?),
-            ExprType::Test(s, path) => {
-                let mut set = s;
+            ExprType::Gt { lhs, rhs } => int(self, lhs)? > int(self, rhs)?,
+            ExprType::Lt { lhs, rhs } => int(self, lhs)? < int(self, rhs)?,
+            ExprType::Ge { lhs, rhs } => int(self, lhs)? >= int(self, rhs)?,
+            ExprType::Le { lhs, rhs } => int(self, lhs)? <= int(self, rhs)?,
+            ExprType::Eq { lhs, rhs } => self.equal_to(rhs, lhs)?,
+            ExprType::Ne { lhs, rhs } => !self.equal_to(rhs, lhs)?,
+            ExprType::And { lhs, rhs } => bol(self, lhs)? && bol(self, rhs)?,
+            ExprType::Or { lhs, rhs } => bol(self, lhs)? || bol(self, rhs)?,
+            ExprType::Not{ val } => !bol(self, val)?,
+            ExprType::Test { base, path } => {
+                let mut set = base;
                 let mut path = &self.get_path(path).ctx(ctx)?[..];
                 while !path.is_empty() {
                     set = match self.get_opt_field_(set, path[0]).ctx(ctx)? {
@@ -193,12 +191,12 @@ impl Elang {
                     };
                     path = &path[1..];
                 }
-                ExprType::Bool(path.is_empty())
+                path.is_empty()
             }
             _ => unreachable!(),
         };
 
-        *val = new;
+        *val = ExprType::Bool { val: new };
 
         Ok(())
     }
@@ -207,9 +205,9 @@ impl Elang {
         let mut val = expr.val.borrow_mut();
         let ctx = ErrorContext::EvalOverlay(expr.id);
 
-        let new = if let ExprType::Overlay(bottom, top) = *val {
-            let bottom = self.get_fields_(bottom).ctx(ctx)?;
-            let top = self.get_fields_(top).ctx(ctx)?;
+        let new = if let ExprType::Overlay { lower, upper } = *val {
+            let bottom = self.get_fields_(lower).ctx(ctx)?;
+            let top = self.get_fields_(upper).ctx(ctx)?;
 
             let mut new = (*bottom).clone();
 
@@ -219,7 +217,7 @@ impl Elang {
 
             new.shrink_to_fit();
 
-            ExprType::Set(Rc::new(new), false)
+            ExprType::Set { fields: Rc::new(new), recursive: false }
         } else {
             unreachable!();
         };
@@ -233,34 +231,34 @@ impl Elang {
         let mut val = expr.val.borrow_mut();
         let ctx = ErrorContext::EvalConcat(expr.id);
 
-        let new = if let ExprType::Concat(l, r) = *val {
-            let left = self.resolve_(l)?;
+        let new = if let ExprType::Concat { lhs, rhs } = *val {
+            let left = self.resolve_(lhs)?;
             let left = left.val.borrow();
             match *left {
-                ExprType::String(left) => {
-                    let ctx2 = ErrorContext::EvalOtherExprType(l, ExprKind::String);
-                    let right = self.get_string_(r).ctx(ctx2).ctx(ctx)?;
+                ExprType::String { content: left } => {
+                    let ctx2 = ErrorContext::EvalOtherExprType(lhs, ExprKind::String);
+                    let right = self.get_string_(rhs).ctx(ctx2).ctx(ctx)?;
                     let new = self.store.concat(left, right);
-                    ExprType::String(new)
+                    ExprType::String { content: new }
                 }
-                ExprType::List(ref left) => {
-                    let ctx2 = ErrorContext::EvalOtherExprType(l, ExprKind::List);
-                    let right = self.get_list_(r).ctx(ctx2).ctx(ctx)?;
+                ExprType::List { elements: ref left } => {
+                    let ctx2 = ErrorContext::EvalOtherExprType(lhs, ExprKind::List);
+                    let right = self.get_list_(rhs).ctx(ctx2).ctx(ctx)?;
                     if right.len() == 0 {
-                        ExprType::List(left.clone())
+                        ExprType::List { elements: left.clone() }
                     } else {
                         let mut left = (**left).to_vec();
                         left.reserve(right.len());
                         for &el in right.iter() {
                             left.push(el);
                         }
-                        ExprType::List(Rc::from(left.into_boxed_slice()))
+                        ExprType::List { elements: Rc::from(left.into_boxed_slice()) }
                     }
                 }
                 _ => {
                     return self
                         .error(
-                            l,
+                            lhs,
                             ErrorType::UnexpectedExprType(
                                 &[ExprKind::String, ExprKind::List],
                                 left.kind(),
@@ -289,9 +287,9 @@ impl Elang {
 
         // Identifiers
         {
-            if let ExprType::Ident(id) = *val {
-                if let Some(e) = scope.get(id) {
-                    *val = ExprType::Resolved(Some(id), e);
+            if let ExprType::Ident { name } = *val {
+                if let Some(dest) = scope.get(name) {
+                    *val = ExprType::Resolved { ident: Some(name), dest };
                 }
                 return;
             }
@@ -300,7 +298,7 @@ impl Elang {
         // Lets
         {
             let mut new_val = None;
-            if let ExprType::Let(ref fields, body) = *val {
+            if let ExprType::Let { ref fields, body } = *val {
                 for (&id, &val) in fields.iter() {
                     if in_fn_body {
                         scope.hide(*id);
@@ -316,10 +314,10 @@ impl Elang {
                     scope.pop(*id);
                 }
                 if !in_fn_body {
-                    new_val = Some(ExprType::Resolved(None, body));
+                    new_val = Some(ExprType::Resolved { ident: None, dest: body });
                 }
             }
-            if let ExprType::Let(..) = *val {
+            if let ExprType::Let { .. } = *val {
                 if let Some(new_val) = new_val {
                     *val = new_val;
                 }
@@ -330,7 +328,7 @@ impl Elang {
         // Recursive sets
         {
             let mut new_val = None;
-            if let ExprType::Set(ref fields, true) = *val {
+            if let ExprType::Set { ref fields, recursive: true } = *val {
                 let mut added_to_scope = vec![];
                 for (&id, &val) in fields.iter() {
                     let val = self.store.get_expr(val);
@@ -347,7 +345,7 @@ impl Elang {
                     let val = self.store.get_expr(val);
                     if val.is_inherit() {
                         if let Some(e) = scope.get(*id) {
-                            *val.val.borrow_mut() = ExprType::Resolved(Some(*id), e);
+                            *val.val.borrow_mut() = ExprType::Resolved { ident: Some(*id), dest: e };
                         }
                     } else {
                         bind!(val.id);
@@ -357,10 +355,10 @@ impl Elang {
                     scope.pop(id);
                 }
                 if !in_fn_body {
-                    new_val = Some(ExprType::Set(fields.clone(), false));
+                    new_val = Some(ExprType::Set { fields: fields.clone(), recursive: false });
                 }
             }
-            if let ExprType::Set(_, true) = *val {
+            if let ExprType::Set { recursive: true, .. } = *val {
                 if let Some(new_val) = new_val {
                     *val = new_val;
                 }
@@ -370,7 +368,7 @@ impl Elang {
 
         // Functions
         {
-            if let ExprType::Fn(FnType::Normal { ref param, body }) = *val {
+            if let ExprType::Fn { func: FnType::Normal { ref param, body } } = *val {
                 match param.val {
                     FnParam::Ident { param_name } => scope.hide(param_name),
                     FnParam::Pat {
@@ -413,80 +411,79 @@ impl Elang {
 
         // The rest
         match *val {
-            ExprType::Ident(..)
-            | ExprType::Let(..)
-            | ExprType::Set(_, true)
-            | ExprType::Fn(FnType::Normal { .. }) => {
+            ExprType::Ident { .. }
+            | ExprType::Let { .. }
+            | ExprType::Set { recursive: true, .. }
+            | ExprType::Fn { func: FnType::Normal { .. } } => {
                 // handled above
                 unreachable!();
             }
             ExprType::Null
-            | ExprType::String(..)
-            | ExprType::Number(..)
-            | ExprType::Resolved(..)
-            | ExprType::Fn(FnType::BuiltIn { .. })
-            | ExprType::Bool(..)
+            | ExprType::String { .. }
+            | ExprType::Number { .. }
+            | ExprType::Resolved { .. }
+            | ExprType::Fn { func: FnType::BuiltIn { .. } }
+            | ExprType::Bool { .. }
             | ExprType::Inherit => {
                 // nothing to do
             }
-            ExprType::Not(e) | ExprType::Neg(e) | ExprType::Stringify(e) => {
-                bind!(e);
+            ExprType::Not { val } | ExprType::Neg { val } | ExprType::Stringify { val } => {
+                bind!(val);
             }
-            ExprType::And(l, r)
-            | ExprType::Or(l, r)
-            | ExprType::Add(l, r)
-            | ExprType::Sub(l, r)
-            | ExprType::Mul(l, r)
-            | ExprType::Div(l, r)
-            | ExprType::Mod(l, r)
-            | ExprType::Gt(l, r)
-            | ExprType::Lt(l, r)
-            | ExprType::Ge(l, r)
-            | ExprType::Le(l, r)
-            | ExprType::Eq(l, r)
-            | ExprType::Ne(l, r)
-            | ExprType::Impl(l, r)
-            | ExprType::Overlay(l, r)
-            | ExprType::Concat(l, r)
-            | ExprType::Apl(l, r) => {
-                bind!(l);
-                bind!(r);
+            ExprType::And { lhs, rhs }
+            | ExprType::Or { lhs, rhs }
+            | ExprType::Add { lhs, rhs }
+            | ExprType::Sub { lhs, rhs }
+            | ExprType::Mul { lhs, rhs }
+            | ExprType::Div { numer: lhs, denom: rhs }
+            | ExprType::Mod { numer: lhs, denom: rhs }
+            | ExprType::Gt { lhs, rhs }
+            | ExprType::Lt { lhs, rhs }
+            | ExprType::Ge { lhs, rhs }
+            | ExprType::Le { lhs, rhs }
+            | ExprType::Eq { lhs, rhs }
+            | ExprType::Ne { lhs, rhs }
+            | ExprType::Overlay { lower: lhs, upper: rhs }
+            | ExprType::Concat { lhs, rhs }
+            | ExprType::Apl { func: lhs, arg: rhs } => {
+                bind!(lhs);
+                bind!(rhs);
             }
-            ExprType::Cond(cond, then, el) => {
+            ExprType::Cond { cond, then, el } => {
                 bind!(cond);
                 bind!(then);
                 bind!(el);
             }
-            ExprType::Set(ref fields, false) => {
+            ExprType::Set { ref fields, recursive: false } => {
                 for (&name, &val) in fields.iter() {
                     let val = self.store.get_expr(val);
                     if val.is_inherit() {
                         if let Some(e) = scope.get(*name) {
-                            *val.val.borrow_mut() = ExprType::Resolved(Some(*name), e);
+                            *val.val.borrow_mut() = ExprType::Resolved { ident: Some(*name), dest: e };
                         }
                     } else {
                         bind!(val.id);
                     }
                 }
             }
-            ExprType::List(ref fields) => {
-                for &field in fields.iter() {
-                    bind!(field);
+            ExprType::List { ref elements } => {
+                for &element in elements.iter() {
+                    bind!(element);
                 }
             }
-            ExprType::Test(target, path) => {
-                bind!(target);
+            ExprType::Test { base, path } => {
+                bind!(base);
                 bind!(path);
             }
-            ExprType::Select(target, path, ref alt) => {
-                bind!(target);
+            ExprType::Select { base, path, ref alt } => {
+                bind!(base);
                 bind!(path);
                 if let Some(alt) = *alt {
                     bind!(alt);
                 }
             }
-            ExprType::Path(ref segs) => {
-                for &seg in segs.iter() {
+            ExprType::Path { ref path } => {
+                for &seg in path.iter() {
                     bind!(seg);
                 }
             }
@@ -497,7 +494,7 @@ impl Elang {
         let mut val = expr.val.borrow_mut();
         let ctx = ErrorContext::EvalCond(expr.id);
 
-        let new = if let ExprType::Cond(cond, then, el) = *val {
+        let dest = if let ExprType::Cond { cond, then, el } = *val {
             if self.get_bool_(cond).ctx(ctx)? {
                 self.force(then)?;
                 then
@@ -509,7 +506,7 @@ impl Elang {
             unreachable!()
         };
 
-        *val = ExprType::Resolved(None, new);
+        *val = ExprType::Resolved { ident: None, dest };
 
         Ok(())
     }
@@ -517,22 +514,22 @@ impl Elang {
     fn force_stringify(&mut self, expr: &Expr) -> Result {
         let mut val = expr.val.borrow_mut();
         let e = match *val {
-            ExprType::Stringify(e) => e,
+            ExprType::Stringify { val } => val,
             _ => unreachable!(),
         };
         let dst = self.resolve_(e)?;
         let dst = dst.val.borrow();
         match *dst {
-            ExprType::String(..) => *val = ExprType::Resolved(None, e),
-            ExprType::Number(ref v) => {
+            ExprType::String { .. } => *val = ExprType::Resolved { ident: None, dest: e },
+            ExprType::Number { val: ref v } => {
                 if !v.is_integer() {
                     return self
                         .error(expr.id, ErrorType::CannotStringifyNonInteger)
                         .ctx(ErrorContext::EvalStringify(expr.id));
                 }
                 let s = format!("{}", v);
-                let id = self.store.add_str(s.into_bytes().into_boxed_slice().into());
-                *val = ExprType::String(id);
+                let content = self.store.add_str(s.into_bytes().into_boxed_slice().into());
+                *val = ExprType::String { content };
             }
             _ => {
                 drop(val);
@@ -562,7 +559,7 @@ impl Elang {
 
     fn force_apl_(&mut self, apl: &Expr) -> Result {
         let (func, arg) = match *apl.val.borrow() {
-            ExprType::Apl(func, arg) => (func, arg),
+            ExprType::Apl { func, arg } => (func, arg),
             _ => unreachable!(),
         };
 
@@ -615,7 +612,7 @@ impl Elang {
         self.force_bind(&self.store.get_expr(new_body), &mut scope, false);
         self.force(new_body)?;
 
-        *apl.val.borrow_mut() = ExprType::Resolved(None, new_body);
+        *apl.val.borrow_mut() = ExprType::Resolved { ident: None, dest: new_body };
 
         Ok(())
     }
@@ -654,16 +651,16 @@ impl Elang {
             let val = expr.val.borrow();
             let ctx = ErrorContext::EvalSelect(expr.id);
 
-            let (mut set, path, alt) = match *val {
-                ExprType::Select(s, p, a) => (s, p, a),
+            let (mut base, path, alt) = match *val {
+                ExprType::Select { base, path, alt } => (base, path, alt),
                 _ => unreachable!(),
             };
 
             let mut path = &self.get_path(path).ctx(ctx)?[..];
-            let mut last_ok = set;
+            let mut last_ok = base;
 
             while !path.is_empty() {
-                set = match self.get_opt_field_(set, path[0]).ctx(ctx)? {
+                base = match self.get_opt_field_(base, path[0]).ctx(ctx)? {
                     Some(f) => f,
                     _ => break,
                 };
@@ -672,7 +669,7 @@ impl Elang {
             }
 
             if !path.is_empty() {
-                let err_span = Span::new(self.span_(set).lo, self.span_(last_ok).hi);
+                let err_span = Span::new(self.span_(base).lo, self.span_(last_ok).hi);
                 if let Some(alt) = alt {
                     self.force(alt)?;
                     alt
@@ -680,22 +677,22 @@ impl Elang {
                     let bad_path = self.resolve_(path[0]).unreachable();
                     let bad_path = bad_path.val.borrow();
                     let et = match *bad_path {
-                        ExprType::String(i) => ErrorType::MissingSetField(i),
-                        ExprType::Number(ref i) => ErrorType::MissingListField(i.clone()),
+                        ExprType::String { content } => ErrorType::MissingSetField(content),
+                        ExprType::Number { ref val } => ErrorType::MissingListField(val.clone()),
                         _ => unreachable!(),
                     };
-                    let mut e = self.error_(set, et);
+                    let mut e = self.error_(base, et);
                     e.span = err_span;
                     e.context.push(ctx);
                     return Err(e);
                 }
             } else {
-                self.force(set)?;
-                set
+                self.force(base)?;
+                base
             }
         };
 
-        *expr.val.borrow_mut() = ExprType::Resolved(None, res);
+        *expr.val.borrow_mut() = ExprType::Resolved { ident: None, dest: res };
 
         Ok(())
     }

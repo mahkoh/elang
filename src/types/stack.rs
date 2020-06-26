@@ -96,23 +96,22 @@ impl Stack {
         let right = self.expr.pop().unwrap();
         let left = self.expr.pop().unwrap();
         let expr: fn(ExprId, ExprId) -> ExprType = match op {
-            Op::Impl => ExprType::Impl,
-            Op::Or => ExprType::Or,
-            Op::And => ExprType::And,
-            Op::Le => ExprType::Le,
-            Op::Ge => ExprType::Ge,
-            Op::Lt => ExprType::Lt,
-            Op::Gt => ExprType::Gt,
-            Op::Eq => ExprType::Eq,
-            Op::Ne => ExprType::Ne,
-            Op::Overlay => ExprType::Overlay,
-            Op::Add => ExprType::Add,
-            Op::Sub => ExprType::Sub,
-            Op::Mul => ExprType::Mul,
-            Op::Div => ExprType::Div,
-            Op::Mod => ExprType::Mod,
-            Op::Concat => ExprType::Concat,
-            Op::Apl => ExprType::Apl,
+            Op::Or => |lhs, rhs| ExprType::Or { lhs, rhs },
+            Op::And => |lhs, rhs| ExprType::And { lhs, rhs },
+            Op::Le => |lhs, rhs| ExprType::Le { lhs, rhs },
+            Op::Ge => |lhs, rhs| ExprType::Ge { lhs, rhs },
+            Op::Lt => |lhs, rhs| ExprType::Lt { lhs, rhs },
+            Op::Gt => |lhs, rhs| ExprType::Gt { lhs, rhs },
+            Op::Eq => |lhs, rhs| ExprType::Eq { lhs, rhs },
+            Op::Ne => |lhs, rhs| ExprType::Ne { lhs, rhs },
+            Op::Overlay => |lower, upper| ExprType::Overlay { lower, upper },
+            Op::Add => |lhs, rhs| ExprType::Add { lhs, rhs },
+            Op::Sub => |lhs, rhs| ExprType::Sub { lhs, rhs },
+            Op::Mul => |lhs, rhs| ExprType::Mul { lhs, rhs },
+            Op::Div => |numer, denom| ExprType::Div { numer, denom },
+            Op::Mod => |numer, denom| ExprType::Mod { numer, denom },
+            Op::Concat => |lhs, rhs| ExprType::Concat { lhs, rhs },
+            Op::Apl => |func, arg| ExprType::Apl { func, arg },
 
             // these are not handled via the stack but directly in the parser
             Op::Select | Op::Test => unreachable!(),
@@ -129,8 +128,8 @@ impl Stack {
         let op = self.op.pop().unwrap();
         let arg = self.expr.pop().unwrap();
         let (lo, expr): (_, fn(ExprId) -> ExprType) = match op {
-            Op::Not(lo) => (lo, ExprType::Not),
-            Op::UnMin(lo) => (lo, ExprType::Neg),
+            Op::Not(lo) => (lo, |val| ExprType::Not { val }),
+            Op::UnMin(lo) => (lo, |val| ExprType::Neg { val }),
 
             // the rest is handled in combine_binary
             _ => unreachable!(),

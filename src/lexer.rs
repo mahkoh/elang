@@ -294,7 +294,6 @@ impl<'a, 'b> Lexer<'a, 'b> {
                 (b'>', _) => one!(Gt),
                 (b'+', b'+') => two!(Concat),
                 (b'+', _) => one!(Plus),
-                (b'-', b'>') => two!(Implies),
                 (b'-', _) => one!(Minus),
                 _ => {}
             }
