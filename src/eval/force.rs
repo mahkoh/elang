@@ -584,7 +584,8 @@ impl Elang {
                 fields,
                 wild,
             } => {
-                let arg_fields = self.get_fields_(arg)?;
+                let ctx = ErrorContext::EvalFnPat(pat.span);
+                let arg_fields = self.get_fields_(arg).ctx(ctx)?;
                 if !wild {
                     for &id in arg_fields.keys() {
                         if fields.get(&id).is_none() {

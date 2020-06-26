@@ -333,6 +333,7 @@ impl Diagnostic {
                 ErrorContext::EvalStringify(eid) => (e(eid), q("stringify expression")),
                 ErrorContext::EvalApl(eid) => (e(eid), q("function application")),
                 ErrorContext::EvalSelect(eid) => (e(eid), q("select expression")),
+                ErrorContext::EvalFnPat(span) => (span, format!("while matching this function pattern")),
                 ErrorContext::EvalOtherExprType(eid, ty) => (
                     e(eid),
                     format!("because this expression is a `{}`", ty.as_str()),

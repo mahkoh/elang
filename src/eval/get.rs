@@ -5,12 +5,10 @@ use crate::types::{
 };
 use std::rc::Rc;
 
-use crate::{
-    types::{diagnostic::ErrorType, result::ResultUtil},
-    Elang, ErrorContext, Fields,
-};
+use crate::{types::{diagnostic::ErrorType, result::ResultUtil}, Elang, ErrorContext, Spanned};
 use num_rational::BigRational;
 use num_traits::ToPrimitive;
+use std::collections::HashMap;
 
 impl Elang {
     pub(crate) fn get_bool_(&mut self, expr: ExprId) -> Result<bool> {
@@ -144,7 +142,7 @@ impl Elang {
         }
     }
 
-    pub(crate) fn get_fields_(&mut self, expr: ExprId) -> Result<Fields> {
+    pub(crate) fn get_fields_(&mut self, expr: ExprId) -> Result<Rc<HashMap<Spanned<StrId>, ExprId>>> {
         let res = self.resolve_(expr)?;
         let val = res.val.borrow();
         match *val {
@@ -152,7 +150,7 @@ impl Elang {
             _ => self.error(
                 expr,
                 ErrorType::UnexpectedExprType(
-                    &[ExprKind::Set, ExprKind::Null],
+                    &[ExprKind::Set],
                     val.kind(),
                 ),
             ),

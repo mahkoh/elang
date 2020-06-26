@@ -42,6 +42,7 @@ pub enum ErrorContext {
     EvalApl(ExprId),
     EvalSelect(ExprId),
     EvalOtherExprType(ExprId, ExprKind),
+    EvalFnPat(Span),
 }
 
 #[derive(Clone, Debug)]

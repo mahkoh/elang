@@ -60,22 +60,20 @@ impl Expr {
     }
 }
 
-/// The value of an expression
-///
-/// In the field documentation, `e1`, `e2`, and `e3` denote expressions.
+/// The type of an expression
 #[derive(Clone, Debug)]
 pub enum ExprType {
-    /// `e1 + e2`
+    /// `lhs + rhs`
     Add {
         lhs: ExprId,
         rhs: ExprId,
     },
-    /// `e1 && e2`
+    /// `lhs && rhs`
     And {
         lhs: ExprId,
         rhs: ExprId,
     },
-    /// `e1 e2`
+    /// `func arg`
     Apl {
         func: ExprId,
         arg: ExprId,
@@ -84,23 +82,26 @@ pub enum ExprType {
     Bool {
         val: bool,
     },
-    /// `e1 ++ e2`
+    /// `lhs ++ rhs`
     Concat {
         lhs: ExprId,
         rhs: ExprId,
     },
     /// `if e1 then e2 else e3`
     Cond {
+        /// `e1`
         cond: ExprId,
+        /// `e2`
         then: ExprId,
+        /// `e3`
         el: ExprId,
     },
-    /// `e1 / e2`
+    /// `numer / denom`
     Div {
         numer: ExprId,
         denom: ExprId,
     },
-    /// `e1 == e2`
+    /// `lhs == rhs`
     Eq {
         lhs: ExprId,
         rhs: ExprId,
@@ -109,12 +110,12 @@ pub enum ExprType {
     Fn {
         func: FnType,
     },
-    /// `e1 >= e2`
+    /// `lhs >= rhs`
     Ge {
         lhs: ExprId,
         rhs: ExprId,
     },
-    /// `e1 > e2`
+    /// `lhs > rhs`
     Gt {
         lhs: ExprId,
         rhs: ExprId,
@@ -124,48 +125,46 @@ pub enum ExprType {
         name: StrId,
     },
     /// `inherit`
-    ///
-    /// This only appears in the fields of a set
     Inherit,
-    /// `e1 <= e2`
+    /// `lhs <= rhs`
     Le {
         lhs: ExprId,
         rhs: ExprId,
     },
-    /// `let fields in e1`
+    /// `let fields in body`
     Let {
-        fields: Fields,
+        fields: Rc<HashMap<Spanned<StrId>, ExprId>>,
         body: ExprId,
     },
     /// `[e1, e2, e3]`
     List {
         elements: Rc<[ExprId]>,
     },
-    /// `e1 < e2`
+    /// `lhs < rhs`
     Lt {
         lhs: ExprId,
         rhs: ExprId,
     },
-    /// `e1 % e2`
+    /// `numer % denom`
     Mod {
         numer: ExprId,
         denom: ExprId,
     },
-    /// `e1 * e2`
+    /// `lhs * rhs`
     Mul {
         lhs: ExprId,
         rhs: ExprId,
     },
-    /// `e1 != e2`
+    /// `lhs != rhs`
     Ne {
         lhs: ExprId,
         rhs: ExprId,
     },
-    /// `-e1`
+    /// `-val`
     Neg {
         val: ExprId,
     },
-    /// `!e1`
+    /// `!val`
     Not {
         val: ExprId,
     },
@@ -175,12 +174,12 @@ pub enum ExprType {
     Number {
         val: Rc<BigRational>,
     },
-    /// `e1 || e2`
+    /// `lhs || rhs`
     Or {
         lhs: ExprId,
         rhs: ExprId,
     },
-    /// `e1 \\ e2`
+    /// `lower \\ upper`
     Overlay {
         lower: ExprId,
         upper: ExprId,
@@ -194,33 +193,31 @@ pub enum ExprType {
         ident: Option<StrId>,
         dest: ExprId,
     },
-    /// `e1.e2 or e3`
+    /// `base.path or alt`
     Select {
         base: ExprId,
         path: ExprId,
         alt: Option<ExprId>,
     },
-    /// `rec { i = e1 }`
-    ///
-    /// The boolean is true iff the set is recursive
+    /// `rec { fields }`
     Set {
-        fields: Fields,
+        fields: Rc<HashMap<Spanned<StrId>, ExprId>>,
         recursive: bool,
     },
     /// A string
     String {
         content: StrId,
     },
-    /// `"\{e1}"`
+    /// `"\{val}"`
     Stringify {
         val: ExprId,
     },
-    /// `e1 - e2`
+    /// `lhs - rhs`
     Sub {
         lhs: ExprId,
         rhs: ExprId,
     },
-    /// `e1 ? e2`
+    /// `base ? path`
     Test {
         base: ExprId,
         path: ExprId,
@@ -230,83 +227,73 @@ pub enum ExprType {
 /// The type of a value of an expression
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum ExprKind {
-    /// `e1 + e2`
+    /// `lhs + rhs`
     Add,
-    /// `e1 && e2`
+    /// `lhs && rhs`
     And,
-    /// `e1 e2`
+    /// `func arg`
     Apl,
     /// A boolean
     Bool,
-    /// `e1 ++ e2`
+    /// `lhs ++ rhs`
     Concat,
     /// `if e1 then e2 else e3`
     Cond,
-    /// `e1 / e2`
+    /// `numer / denom`
     Div,
-    /// `e1 == e2`
+    /// `lhs == rhs`
     Eq,
     /// A function
     Fn,
-    /// `e1 >= e2`
+    /// `lhs >= rhs`
     Ge,
-    /// `e1 > e2`
+    /// `lhs > rhs`
     Gt,
     /// An identifier
     Ident,
-    /// `e1 -> e2`
-    Impl,
     /// `inherit`
-    ///
-    /// This only appears in the fields of a set
     Inherit,
-    /// `e1 <= e2`
+    /// `lhs <= rhs`
     Le,
-    /// `let fields in e1`
+    /// `let fields in body`
     Let,
     /// `[e1, e2, e3]`
     List,
-    /// `e1 < e2`
+    /// `lhs < rhs`
     Lt,
-    /// `e1 % e2`
+    /// `numer % denom`
     Mod,
-    /// `e1 * e2`
+    /// `lhs * rhs`
     Mul,
-    /// `e1 != e2`
+    /// `lhs != rhs`
     Ne,
-    /// `-e1`
+    /// `-val`
     Neg,
-    /// `!e1`
+    /// `!val`
     Not,
     /// `null`
     Null,
     /// A number
     Number,
-    /// `e1 || e2`
+    /// `lhs || rhs`
     Or,
-    /// `e1 \\ e2`
+    /// `lower \\ upper`
     Overlay,
     /// `e1.e2.e3`
     Path,
     /// A reference to another expression
     Resolved,
-    /// `e1.e2 or e3`
-    ///
-    /// `e2` is a `Value::Path`.
+    /// `base.path or alt`
     Select,
-    /// `rec { i = e1 }`
-    ///
-    /// The boolean is true iff the set is recursive
+    /// `rec { fields }`
     Set,
     /// A string
     String,
-    /// `"\{e1}"`
+    /// `"\{val}"`
     Stringify,
-    /// `e1 - e2`
+    /// `lhs - rhs`
     Sub,
-    /// `e1 ? e2`
-    ///
-    /// `e2` is a `Value::Path`
+    /// `base ? path`
     Test,
 }
 
@@ -332,7 +319,6 @@ impl ExprKind {
             ExprKind::Le => "le",
             ExprKind::Eq => "eq",
             ExprKind::Ne => "ne",
-            ExprKind::Impl => "imlp",
             ExprKind::Overlay => "overlay",
             ExprKind::Concat => "concat",
             ExprKind::Apl => "apl",
@@ -392,8 +378,6 @@ impl ExprType {
         }
     }
 }
-
-pub type Fields = Rc<HashMap<Spanned<StrId>, ExprId>>;
 
 #[derive(Clone)]
 pub enum FnParam {
