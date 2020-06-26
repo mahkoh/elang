@@ -9,14 +9,13 @@ pub use crate::{
         span::{Span, Spanned},
         store::StrId,
         token::TokenType,
-        tree::{Expr, ExprId, ExprKind, ExprType, FnParam, FnType, BuiltInFn},
+        tree::{BuiltInFn, Expr, ExprId, ExprKind, ExprType, FnParam, FnType},
         value::Value,
     },
 };
 use crate::{lexer::Lexer, parser::Parser, types::store::Store};
 use num_rational::BigRational;
-use std::{convert::TryInto, rc::Rc};
-use std::collections::HashMap;
+use std::{collections::HashMap, convert::TryInto, rc::Rc};
 
 mod diag;
 mod eval;
@@ -164,7 +163,10 @@ impl Elang {
         self.get_opt_field_(expr_id, selector)
     }
 
-    pub fn get_fields(&mut self, expr_id: ExprId) -> Result<Rc<HashMap<Spanned<StrId>, ExprId>>> {
+    pub fn get_fields(
+        &mut self,
+        expr_id: ExprId,
+    ) -> Result<Rc<HashMap<Spanned<StrId>, ExprId>>> {
         self.get_fields_(expr_id)
     }
 

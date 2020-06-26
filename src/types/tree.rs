@@ -64,29 +64,15 @@ impl Expr {
 #[derive(Clone, Debug)]
 pub enum ExprType {
     /// `lhs + rhs`
-    Add {
-        lhs: ExprId,
-        rhs: ExprId,
-    },
+    Add { lhs: ExprId, rhs: ExprId },
     /// `lhs && rhs`
-    And {
-        lhs: ExprId,
-        rhs: ExprId,
-    },
+    And { lhs: ExprId, rhs: ExprId },
     /// `func arg`
-    Apl {
-        func: ExprId,
-        arg: ExprId,
-    },
+    Apl { func: ExprId, arg: ExprId },
     /// A boolean
-    Bool {
-        val: bool,
-    },
+    Bool { val: bool },
     /// `lhs ++ rhs`
-    Concat {
-        lhs: ExprId,
-        rhs: ExprId,
-    },
+    Concat { lhs: ExprId, rhs: ExprId },
     /// `if e1 then e2 else e3`
     Cond {
         /// `e1`
@@ -97,102 +83,52 @@ pub enum ExprType {
         el: ExprId,
     },
     /// `numer / denom`
-    Div {
-        numer: ExprId,
-        denom: ExprId,
-    },
+    Div { numer: ExprId, denom: ExprId },
     /// `lhs == rhs`
-    Eq {
-        lhs: ExprId,
-        rhs: ExprId,
-    },
+    Eq { lhs: ExprId, rhs: ExprId },
     /// A function
-    Fn {
-        func: FnType,
-    },
+    Fn { func: FnType },
     /// `lhs >= rhs`
-    Ge {
-        lhs: ExprId,
-        rhs: ExprId,
-    },
+    Ge { lhs: ExprId, rhs: ExprId },
     /// `lhs > rhs`
-    Gt {
-        lhs: ExprId,
-        rhs: ExprId,
-    },
+    Gt { lhs: ExprId, rhs: ExprId },
     /// An identifier
-    Ident {
-        name: StrId,
-    },
+    Ident { name: StrId },
     /// `inherit`
     Inherit,
     /// `lhs <= rhs`
-    Le {
-        lhs: ExprId,
-        rhs: ExprId,
-    },
+    Le { lhs: ExprId, rhs: ExprId },
     /// `let fields in body`
     Let {
         fields: Rc<HashMap<Spanned<StrId>, ExprId>>,
         body: ExprId,
     },
     /// `[e1, e2, e3]`
-    List {
-        elements: Rc<[ExprId]>,
-    },
+    List { elements: Rc<[ExprId]> },
     /// `lhs < rhs`
-    Lt {
-        lhs: ExprId,
-        rhs: ExprId,
-    },
+    Lt { lhs: ExprId, rhs: ExprId },
     /// `numer % denom`
-    Mod {
-        numer: ExprId,
-        denom: ExprId,
-    },
+    Mod { numer: ExprId, denom: ExprId },
     /// `lhs * rhs`
-    Mul {
-        lhs: ExprId,
-        rhs: ExprId,
-    },
+    Mul { lhs: ExprId, rhs: ExprId },
     /// `lhs != rhs`
-    Ne {
-        lhs: ExprId,
-        rhs: ExprId,
-    },
+    Ne { lhs: ExprId, rhs: ExprId },
     /// `-val`
-    Neg {
-        val: ExprId,
-    },
+    Neg { val: ExprId },
     /// `!val`
-    Not {
-        val: ExprId,
-    },
+    Not { val: ExprId },
     /// `null`
     Null,
     /// A number
-    Number {
-        val: Rc<BigRational>,
-    },
+    Number { val: Rc<BigRational> },
     /// `lhs || rhs`
-    Or {
-        lhs: ExprId,
-        rhs: ExprId,
-    },
+    Or { lhs: ExprId, rhs: ExprId },
     /// `lower \\ upper`
-    Overlay {
-        lower: ExprId,
-        upper: ExprId,
-    },
+    Overlay { lower: ExprId, upper: ExprId },
     /// `e1.e2.e3`
-    Path {
-        path: Rc<[ExprId]>,
-    },
+    Path { path: Rc<[ExprId]> },
     /// A reference to another expression
-    Resolved {
-        ident: Option<StrId>,
-        dest: ExprId,
-    },
+    Resolved { ident: Option<StrId>, dest: ExprId },
     /// `base.path or alt`
     Select {
         base: ExprId,
@@ -205,23 +141,13 @@ pub enum ExprType {
         recursive: bool,
     },
     /// A string
-    String {
-        content: StrId,
-    },
+    String { content: StrId },
     /// `"\{val}"`
-    Stringify {
-        val: ExprId,
-    },
+    Stringify { val: ExprId },
     /// `lhs - rhs`
-    Sub {
-        lhs: ExprId,
-        rhs: ExprId,
-    },
+    Sub { lhs: ExprId, rhs: ExprId },
     /// `base ? path`
-    Test {
-        base: ExprId,
-        path: ExprId,
-    },
+    Test { base: ExprId, path: ExprId },
 }
 
 /// The type of a value of an expression

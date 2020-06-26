@@ -1,10 +1,10 @@
 use std::{
+    borrow::Borrow,
     fmt,
     fmt::{Debug, Formatter},
+    hash::{Hash, Hasher},
     ops::{Deref, DerefMut},
 };
-use std::borrow::Borrow;
-use std::hash::{Hash, Hasher};
 
 /// A span in a codemap.
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]

@@ -1,4 +1,7 @@
-use crate::{types::{span::Span, store::StrId, token::TokenType, tree::ExprKind}, ExprId, Spanned};
+use crate::{
+    types::{span::Span, store::StrId, token::TokenType, tree::ExprKind},
+    ExprId, Spanned,
+};
 use num_rational::BigRational;
 use std::{fmt::Debug, rc::Rc};
 

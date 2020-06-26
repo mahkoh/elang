@@ -52,6 +52,8 @@ fn test(dir: DirEntry) -> bool {
         return true;
     }
 
+    eprintln!("{:?}", e.get_value(res));
+
     Test { e, diag }.compare(res, &out)
 }
 
@@ -120,7 +122,13 @@ impl Test {
                     return true;
                 }
             }
-            (ExprType::Set { fields: ref s1, recursive: false }, serde_json::Value::Object(ref s2)) => {
+            (
+                ExprType::Set {
+                    fields: ref s1,
+                    recursive: false,
+                },
+                serde_json::Value::Object(ref s2),
+            ) => {
                 if s1.len() != s2.len() {
                     self.error(
                         actual,

@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use crate::types::{
     store::Store,
     tree::{ExprId, ExprType, FnParam, FnType},
@@ -92,7 +94,10 @@ fn print_tree_<W: Write>(
                 pt!(e)
             }
         }
-        ExprType::Set { ref fields, recursive } => {
+        ExprType::Set {
+            ref fields,
+            recursive,
+        } => {
             if recursive {
                 write!(w, "{} [shape=\"box\", label=\"rec set\"];", id)?;
             } else {
@@ -227,7 +232,9 @@ fn print_tree_<W: Write>(
             write!(w, "{} -> {};", sid, id)?;
             pt!(body)
         }
-        ExprType::Fn { func: FnType::Normal { ref param, body } } => {
+        ExprType::Fn {
+            func: FnType::Normal { ref param, body },
+        } => {
             let sid = *id;
             *id += 1;
             write!(
@@ -270,8 +277,8 @@ fn print_tree_<W: Write>(
             write!(w, "{} -> {};", sid, id)?;
             pt!(body)
         }
-        ExprType::Fn { func: FnType::BuiltIn { .. } } => {
-            write!(w, "{} [shape=\"box\", label=\"built-in fn\"];", *id)
-        }
+        ExprType::Fn {
+            func: FnType::BuiltIn { .. },
+        } => write!(w, "{} [shape=\"box\", label=\"built-in fn\"];", *id),
     }
 }
