@@ -228,12 +228,12 @@ impl Diagnostic {
             ErrorType::UnknownEscapeSequence(b) => {
                 format!("unknown escape sequence {:?}", b)
             }
-            ErrorType::DuplicateIdentifier(id, prev) => {
-                let s = e.get_interned(id);
+            ErrorType::DuplicateIdentifier(id) => {
+                let s = e.get_interned(*id);
                 let txt =
                     format!("duplicate identifier `{}`", &String::from_utf8_lossy(&s));
                 self.common(msg.span, "error: ", &txt);
-                self.common(prev, "note: ", "previous declaration here");
+                self.common(id.span, "note: ", "previous declaration here");
                 self.trace(e, msg);
                 return;
             }
@@ -273,14 +273,14 @@ impl Diagnostic {
                 self.trace(e, msg);
                 return;
             }
-            ErrorType::MissingArgument(name, span) => {
-                let s = e.get_interned(name);
+            ErrorType::MissingArgument(name) => {
+                let s = e.get_interned(*name);
                 self.common(
                     msg.span,
                     "error: ",
                     &format!("missing argument `{}`", &String::from_utf8_lossy(&s)),
                 );
-                self.common(span, "note: ", "parameter declared here");
+                self.common(name.span, "note: ", "parameter declared here");
                 self.trace(e, msg);
                 return;
             }

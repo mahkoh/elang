@@ -1,7 +1,4 @@
-use crate::{
-    types::{span::Span, store::StrId, token::TokenType, tree::ExprKind},
-    ExprId,
-};
+use crate::{types::{span::Span, store::StrId, token::TokenType, tree::ExprKind}, ExprId, Spanned};
 use num_rational::BigRational;
 use std::{fmt::Debug, rc::Rc};
 
@@ -59,7 +56,7 @@ pub enum ErrorType {
     MissingCodePoint,
     InvalidCodePoint(u32),
     UnknownEscapeSequence(u8),
-    DuplicateIdentifier(StrId, Span),
+    DuplicateIdentifier(Spanned<StrId>),
     UnexpectedExprType(&'static [ExprKind], ExprKind),
     CannotStringifyNonInteger,
     MissingSetField(StrId),
@@ -68,7 +65,7 @@ pub enum ErrorType {
     CannotForceExpr(ExprKind),
     DivideByZero,
     ExtraArgument(StrId, Span),
-    MissingArgument(StrId, Span),
+    MissingArgument(Spanned<StrId>),
     MissingNewline,
     SpanOverflow,
     AssertionFailed,

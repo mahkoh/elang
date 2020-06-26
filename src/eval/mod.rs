@@ -3,7 +3,7 @@ use crate::{
         diagnostic::{ErrorContext, ErrorType},
         result::Result,
         span::{Span, Spanned},
-        tree::{Expr, ExprId, ExprType, FnArg, FnType},
+        tree::{Expr, ExprId, ExprType, FnParam, FnType},
         value::Value,
     },
     Elang, Error, ExprKind,
@@ -179,8 +179,8 @@ impl Elang {
             ExprType::Bool(b) => ExprType::Bool(b),
             ExprType::Null => ExprType::Null,
             ExprType::Resolved(id, dst) => ExprType::Resolved(id, dst),
-            ExprType::Fn(FnType::BuiltIn(ref f)) => {
-                ExprType::Fn(FnType::BuiltIn(f.clone()))
+            ExprType::Fn(FnType::BuiltIn { ref func }) => {
+                ExprType::Fn(FnType::BuiltIn { func: func.clone() })
             }
             ExprType::Ident(id) => ExprType::Ident(id),
             ExprType::List(ref els) => {
@@ -192,15 +192,15 @@ impl Elang {
             }
             ExprType::Set(ref fields, rec) => {
                 let mut nfields = HashMap::with_capacity(fields.len());
-                for (&id, &(span, val)) in fields.iter() {
-                    nfields.insert(id, (span, copy!(val)));
+                for (&id, &val) in fields.iter() {
+                    nfields.insert(id, copy!(val));
                 }
                 ExprType::Set(Rc::new(nfields), rec)
             }
             ExprType::Let(ref fields, body) => {
                 let mut nfields = HashMap::with_capacity(fields.len());
-                for (&id, &(span, val)) in fields.iter() {
-                    nfields.insert(id, (span, copy!(val)));
+                for (&id, &val) in fields.iter() {
+                    nfields.insert(id, copy!(val));
                 }
                 let nbody = copy!(body);
                 ExprType::Let(Rc::new(nfields), nbody)
@@ -221,36 +221,43 @@ impl Elang {
                 };
                 ExprType::Select(ntarget, nsegs, nalt)
             }
-            ExprType::Fn(FnType::Normal(
-                Spanned {
+            ExprType::Fn(FnType::Normal {
+                param: Spanned {
                     span,
-                    val: FnArg::Ident(id),
+                    val: FnParam::Ident { param_name },
                 },
                 body,
-            )) => {
-                let nbody = copy!(body);
-                ExprType::Fn(FnType::Normal(Spanned::new(span, FnArg::Ident(id)), nbody))
+            }) => {
+                ExprType::Fn(FnType::Normal {
+                    param: Spanned::new(span, FnParam::Ident { param_name }),
+                    body: copy!(body),
+                })
             }
-            ExprType::Fn(FnType::Normal(
-                Spanned {
+            ExprType::Fn(FnType::Normal {
+                param: Spanned {
                     span,
-                    val: FnArg::Pat(id, ref fields, wild),
+                    val:
+                        FnParam::Pat {
+                            param_name,
+                            ref fields,
+                            wild,
+                        },
                 },
                 body,
-            )) => {
+            }) => {
                 let mut nfields = HashMap::with_capacity(fields.len());
-                for (&id, &(span, alt)) in fields.iter() {
+                for (&id, &alt) in fields.iter() {
                     nfields.insert(
                         id,
-                        match alt {
-                            Some(alt) => (span, Some(copy!(alt))),
-                            _ => (span, None),
-                        },
+                        alt.map(|alt| copy!(alt)),
                     );
                 }
-                let nbody = copy!(body);
-                let pat = FnArg::Pat(id, Rc::new(nfields), wild);
-                ExprType::Fn(FnType::Normal(Spanned::new(span, pat), nbody))
+                let pat = FnParam::Pat {
+                    param_name,
+                    fields: Rc::new(nfields),
+                    wild,
+                };
+                ExprType::Fn(FnType::Normal { param: Spanned::new(span, pat), body: copy!(body) })
             }
         };
 
@@ -291,7 +298,9 @@ impl Elang {
             ExprType::Number(ref num) => Value::Number((**num).clone()),
             ExprType::Bool(b) => Value::Bool(b),
             ExprType::Null => Value::Null,
-            ExprType::String(id) => Value::String(self.store.get_str(id).to_vec().into_boxed_slice()),
+            ExprType::String(id) => {
+                Value::String(self.store.get_str(id).to_vec().into_boxed_slice())
+            }
             ExprType::List(ref el) => {
                 let el = el.clone();
                 drop(expr);
@@ -306,8 +315,8 @@ impl Elang {
                 drop(expr);
                 let mut r = HashMap::new();
                 for e in f.iter() {
-                    let s = self.store.get_str(*e.0).to_vec().into_boxed_slice();
-                    let val = self.get_value((e.1).1)?;
+                    let s = self.store.get_str(**e.0).to_vec().into_boxed_slice();
+                    let val = self.get_value(*e.1)?;
                     r.insert(s, val);
                 }
                 Value::Set(r)

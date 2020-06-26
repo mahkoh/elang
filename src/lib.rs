@@ -6,11 +6,11 @@ pub use crate::{
     types::{
         diagnostic::{Error, ErrorContext, ErrorType, TokenAlternative},
         result::Result,
-        span::Span,
+        span::{Span, Spanned},
         store::StrId,
         token::TokenType,
+        tree::{Expr, ExprId, ExprKind, ExprType, Fields, FnParam, FnType},
         value::Value,
-        tree::{Expr, ExprId, ExprKind, ExprType, Fields},
     },
 };
 use crate::{lexer::Lexer, parser::Parser, types::store::Store};

@@ -1,6 +1,6 @@
 use crate::types::{
     store::Store,
-    tree::{ExprId, ExprType, FnArg, FnType},
+    tree::{ExprId, ExprType, FnParam, FnType},
 };
 use std::{collections::HashMap, io, io::Write};
 
@@ -102,11 +102,11 @@ fn print_tree_<W: Write>(
             for el in els.iter() {
                 *id += 1;
                 write!(w, "{} [label=\"", id)?;
-                w.write_all(&store.get_str(*el.0))?;
+                w.write_all(&store.get_str(**el.0))?;
                 write!(w, "\"];{} -> {};", sid, id)?;
                 write!(w, "{} -> {};", id, *id + 1)?;
                 *id += 1;
-                pt!((el.1).1)?;
+                pt!(*el.1)?;
             }
             Ok(())
         }
@@ -219,16 +219,16 @@ fn print_tree_<W: Write>(
             for el in lets.iter() {
                 *id += 1;
                 write!(w, "{} [label=\"", id)?;
-                w.write_all(&store.get_str(*el.0))?;
+                w.write_all(&store.get_str(**el.0))?;
                 write!(w, "\"];{} -> {}; {} -> {};", vid, id, id, *id + 1)?;
                 *id += 1;
-                pt!((el.1).1)?;
+                pt!(*el.1)?;
             }
             *id += 1;
             write!(w, "{} -> {};", sid, id)?;
             pt!(e)
         }
-        ExprType::Fn(FnType::Normal(ref arg, body)) => {
+        ExprType::Fn(FnType::Normal { ref param, body }) => {
             let sid = *id;
             *id += 1;
             write!(
@@ -236,14 +236,18 @@ fn print_tree_<W: Write>(
                 "{} [shape=\"box\", label=\"fn\"]; {} -> {};",
                 sid, sid, id
             )?;
-            match arg.val {
-                FnArg::Ident(i) => {
+            match param.val {
+                FnParam::Ident { param_name } => {
                     write!(w, "{} [label=\"", id)?;
-                    w.write_all(&store.get_str(i))?;
+                    w.write_all(&store.get_str(param_name))?;
                     write!(w, "\"];")?;
                 }
-                FnArg::Pat(i, ref args, wild) => {
-                    let name = match i {
+                FnParam::Pat {
+                    param_name,
+                    ref fields,
+                    wild,
+                } => {
+                    let name = match param_name {
                         Some(i) => store.get_str(i.val),
                         _ => vec![].into_boxed_slice().into(),
                     };
@@ -251,10 +255,10 @@ fn print_tree_<W: Write>(
                     w.write_all(&name)?;
                     write!(w, " @\"];")?;
                     let aid = *id;
-                    for arg in args.iter() {
+                    for arg in fields.iter() {
                         *id += 1;
                         write!(w, "{} [label=\"", id)?;
-                        w.write_all(&store.get_str(*arg.0))?;
+                        w.write_all(&store.get_str(**arg.0))?;
                         write!(w, "\"];{} -> {};", aid, id)?;
                     }
                     if wild {
@@ -267,7 +271,7 @@ fn print_tree_<W: Write>(
             write!(w, "{} -> {};", sid, id)?;
             pt!(body)
         }
-        ExprType::Fn(FnType::BuiltIn(..)) => {
+        ExprType::Fn(FnType::BuiltIn { .. }) => {
             write!(w, "{} [shape=\"box\", label=\"built-in fn\"];", *id)
         }
     }

@@ -97,7 +97,7 @@ impl Elang {
 
         match (&*base_val, &*sel_val) {
             (ExprType::Set(ref fields, _), ExprType::String(name)) => {
-                if let Some(&(_, val)) = fields.get(&name) {
+                if let Some(&val) = fields.get(name) {
                     return Ok(Some(val));
                 }
                 Ok(None)

@@ -12,7 +12,7 @@ use std::rc::Rc;
 
 macro_rules! bi {
     ($f:expr) => {
-        ExprType::Fn(FnType::BuiltIn(Rc::new($f)))
+        ExprType::Fn(FnType::BuiltIn { func: Rc::new($f) })
     };
 }
 
@@ -20,7 +20,7 @@ pub fn to_list() -> Rc<dyn BuiltInFn> {
     let f = move |eval: &mut Elang, e: Rc<Expr>| {
         let fields = eval.get_fields(e.id)?;
         let mut list = Vec::with_capacity(fields.len());
-        for &(_, val) in fields.values() {
+        for &val in fields.values() {
             list.push(val);
         }
         Ok(ExprType::List(Rc::from(list.into_boxed_slice())))

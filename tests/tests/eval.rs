@@ -138,7 +138,7 @@ impl Test {
                         .e
                         .intern(ks.as_bytes().to_vec().into_boxed_slice().into());
                     err |= match s1.get(&k) {
-                        Some(a) => self.compare(a.1, v),
+                        Some(a) => self.compare(*a, v),
                         _ => {
                             self.error(
                                 actual,

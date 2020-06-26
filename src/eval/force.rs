@@ -4,7 +4,7 @@ use crate::{
         result::{Result, ResultUtil},
         scope::Scope,
         span::Span,
-        tree::{Expr, ExprId, ExprKind, ExprType, FnArg, FnType},
+        tree::{Expr, ExprId, ExprKind, ExprType, FnParam, FnType},
     },
     Elang, Error,
 };
@@ -213,8 +213,8 @@ impl Elang {
 
             let mut new = (*bottom).clone();
 
-            for (&id, &(span, val)) in top.iter() {
-                new.insert(id, (span, val));
+            for (&id, &val) in top.iter() {
+                new.insert(id, val);
             }
 
             new.shrink_to_fit();
@@ -301,19 +301,19 @@ impl Elang {
         {
             let mut new_val = None;
             if let ExprType::Let(ref fields, body) = *val {
-                for (&id, &(_, val)) in fields.iter() {
+                for (&id, &val) in fields.iter() {
                     if in_fn_body {
-                        scope.hide(id);
+                        scope.hide(*id);
                     } else {
-                        scope.bind(id, val);
+                        scope.bind(*id, val);
                     }
                 }
-                for (_, val) in fields.values() {
-                    bind!(*val);
+                for &val in fields.values() {
+                    bind!(val);
                 }
                 bind!(body);
                 for &id in fields.keys() {
-                    scope.pop(id);
+                    scope.pop(*id);
                 }
                 if !in_fn_body {
                     new_val = Some(ExprType::Resolved(None, body));
@@ -332,22 +332,22 @@ impl Elang {
             let mut new_val = None;
             if let ExprType::Set(ref fields, true) = *val {
                 let mut added_to_scope = vec![];
-                for (&id, &(_, val)) in fields.iter() {
+                for (&id, &val) in fields.iter() {
                     let val = self.store.get_expr(val);
                     if !val.is_inherit() {
                         if in_fn_body {
-                            scope.hide(id);
+                            scope.hide(*id);
                         } else {
-                            scope.bind(id, val.id);
+                            scope.bind(*id, val.id);
                         }
-                        added_to_scope.push(id);
+                        added_to_scope.push(*id);
                     }
                 }
-                for (&id, &(_, val)) in fields.iter() {
+                for (&id, &val) in fields.iter() {
                     let val = self.store.get_expr(val);
                     if val.is_inherit() {
-                        if let Some(e) = scope.get(id) {
-                            *val.val.borrow_mut() = ExprType::Resolved(Some(id), e);
+                        if let Some(e) = scope.get(*id) {
+                            *val.val.borrow_mut() = ExprType::Resolved(Some(*id), e);
                         }
                     } else {
                         bind!(val.id);
@@ -370,32 +370,40 @@ impl Elang {
 
         // Functions
         {
-            if let ExprType::Fn(FnType::Normal(ref pat, body)) = *val {
-                match pat.val {
-                    FnArg::Ident(id) => scope.hide(id),
-                    FnArg::Pat(id, ref fields, _) => {
-                        for (_, field_alt) in fields.values() {
+            if let ExprType::Fn(FnType::Normal { ref param, body }) = *val {
+                match param.val {
+                    FnParam::Ident { param_name } => scope.hide(param_name),
+                    FnParam::Pat {
+                        param_name,
+                        ref fields,
+                        ..
+                    } => {
+                        for field_alt in fields.values() {
                             if let Some(field_alt) = *field_alt {
                                 bind!(field_alt);
                             }
                         }
                         for &field_name in fields.keys() {
-                            scope.hide(field_name);
+                            scope.hide(*field_name);
                         }
-                        if let Some(id) = id {
-                            scope.hide(id.val);
+                        if let Some(param_name) = param_name {
+                            scope.hide(*param_name);
                         }
                     }
                 }
                 self.force_bind(&self.store.get_expr(body), scope, true);
-                match pat.val {
-                    FnArg::Ident(id) => scope.pop(id),
-                    FnArg::Pat(id, ref fields, _) => {
+                match param.val {
+                    FnParam::Ident { param_name } => scope.pop(param_name),
+                    FnParam::Pat {
+                        param_name,
+                        ref fields,
+                        ..
+                    } => {
                         for &field_name in fields.keys() {
-                            scope.pop(field_name);
+                            scope.pop(*field_name);
                         }
-                        if let Some(id) = id {
-                            scope.pop(id.val);
+                        if let Some(param_name) = param_name {
+                            scope.pop(*param_name);
                         }
                     }
                 }
@@ -408,7 +416,7 @@ impl Elang {
             ExprType::Ident(..)
             | ExprType::Let(..)
             | ExprType::Set(_, true)
-            | ExprType::Fn(FnType::Normal(..)) => {
+            | ExprType::Fn(FnType::Normal { .. }) => {
                 // handled above
                 unreachable!();
             }
@@ -416,7 +424,7 @@ impl Elang {
             | ExprType::String(..)
             | ExprType::Number(..)
             | ExprType::Resolved(..)
-            | ExprType::Fn(FnType::BuiltIn(..))
+            | ExprType::Fn(FnType::BuiltIn { .. })
             | ExprType::Bool(..)
             | ExprType::Inherit => {
                 // nothing to do
@@ -450,11 +458,11 @@ impl Elang {
                 bind!(el);
             }
             ExprType::Set(ref fields, false) => {
-                for (&name, &(_, val)) in fields.iter() {
+                for (&name, &val) in fields.iter() {
                     let val = self.store.get_expr(val);
                     if val.is_inherit() {
-                        if let Some(e) = scope.get(name) {
-                            *val.val.borrow_mut() = ExprType::Resolved(Some(name), e);
+                        if let Some(e) = scope.get(*name) {
+                            *val.val.borrow_mut() = ExprType::Resolved(Some(*name), e);
                         }
                     } else {
                         bind!(val.id);
@@ -559,8 +567,8 @@ impl Elang {
         };
 
         let (pat, body) = match self.get_func(func)? {
-            FnType::Normal(pat, body) => (pat, body),
-            FnType::BuiltIn(func) => {
+            FnType::Normal { param, body } => (param, body),
+            FnType::BuiltIn { func } => {
                 let arg = self.store.get_expr(arg);
                 let res = func.apply(self, arg)?;
                 *apl.val.borrow_mut() = res;
@@ -571,30 +579,34 @@ impl Elang {
         let mut scope = Scope::new();
 
         match pat.val {
-            FnArg::Ident(i) => {
-                scope.bind(i, arg);
+            FnParam::Ident { param_name } => {
+                scope.bind(param_name, arg);
             }
-            FnArg::Pat(at, fields, wild) => {
+            FnParam::Pat {
+                param_name,
+                fields,
+                wild,
+            } => {
                 let arg_fields = self.get_fields_(arg)?;
                 if !wild {
                     for &id in arg_fields.keys() {
                         if fields.get(&id).is_none() {
                             return self
-                                .error(arg, ErrorType::ExtraArgument(id, pat.span));
+                                .error(arg, ErrorType::ExtraArgument(*id, pat.span));
                         }
                     }
                 }
-                for (&id, &(span, alt)) in fields.iter() {
-                    if let Some(&(_, val)) = arg_fields.get(&id) {
-                        scope.bind(id, val);
+                for (&id, &alt) in fields.iter() {
+                    if let Some(&val) = arg_fields.get(&id) {
+                        scope.bind(*id, val);
                     } else if let Some(alt) = alt {
-                        scope.bind(id, alt);
+                        scope.bind(*id, alt);
                     } else {
-                        return self.error(arg, ErrorType::MissingArgument(id, span));
+                        return self.error(arg, ErrorType::MissingArgument(id));
                     }
                 }
-                if let Some(at) = at {
-                    scope.bind(at.val, arg);
+                if let Some(param_name) = param_name {
+                    scope.bind(param_name.val, arg);
                 }
             }
         }

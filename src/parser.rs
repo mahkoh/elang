@@ -8,7 +8,7 @@ use crate::{
         stack::Stack,
         store::StrId,
         token::{Token, TokenType},
-        tree::{ExprId, ExprType, FnArg, FnType, SExpr},
+        tree::{ExprId, ExprType, FnParam, FnType, SExpr},
     },
 };
 use num_bigint::BigInt;
@@ -406,34 +406,41 @@ impl<'a, 'b> Parser<'a, 'b> {
         let first = self.lexer.peek(0).unwrap();
         let ctx = ErrorContext::ParseFnHeader(first.span.lo);
 
-        if let Token::Ident(id) = first.val {
+        if let Token::Ident(param_name) = first.val {
             self.lexer.skip(1);
             let second = self.lexer.next().unreachable();
 
             // First case above.
             if second.val == Token::Colon {
                 let body = self.parse_expr()?;
-                let arg = FnArg::Ident(id);
+                let arg = FnParam::Ident { param_name };
                 let span = Span::new(first.span.lo, body.span.hi);
                 let expr =
-                    ExprType::Fn(FnType::Normal(Spanned::new(first.span, arg), body.val));
+                    ExprType::Fn(FnType::Normal { param: Spanned::new(first.span, arg), body: body.val });
                 return Ok(self.spanned(span, expr));
             }
 
             // Third case above.
             if second.val == Token::At {
-                let (pat_span, pat, wild) = self.parse_fn_pat().ctx(ctx)?;
-                if let Some(&(span, _)) = pat.get(&id) {
-                    return self
-                        .error(span, ErrorType::DuplicateIdentifier(id, first.span));
+                let (pat_span, fields, wild) = self.parse_fn_pat().ctx(ctx)?;
+                if let Some((&spanned, _)) = fields.get_key_value(&param_name) {
+                    return self.error(
+                        spanned.span,
+                        ErrorType::DuplicateIdentifier(Spanned::new(first.span, param_name)),
+                    );
                 }
                 self.lexer.next_colon().ctx(ctx)?;
                 let body = self.parse_expr()?;
                 let arg_span = Span::new(first.span.lo, pat_span.hi);
-                let arg = FnArg::Pat(Some(Spanned::new(first.span, id)), pat, wild);
+                let param_name = Some(Spanned::new(first.span, param_name));
+                let arg = FnParam::Pat {
+                    param_name,
+                    fields,
+                    wild,
+                };
                 let span = Span::new(first.span.lo, body.span.hi);
                 let expr =
-                    ExprType::Fn(FnType::Normal(Spanned::new(arg_span, arg), body.val));
+                    ExprType::Fn(FnType::Normal { param: Spanned::new(arg_span, arg), body: body.val });
                 return Ok(self.spanned(span, expr));
             }
 
@@ -442,13 +449,17 @@ impl<'a, 'b> Parser<'a, 'b> {
 
         // Second case above.
         if first.val == Token::LeftBrace {
-            let (pat_span, pat, wild) = self.parse_fn_pat().ctx(ctx)?;
+            let (pat_span, fields, wild) = self.parse_fn_pat().ctx(ctx)?;
             self.lexer.next_colon().ctx(ctx)?;
             let body = self.parse_expr()?;
-            let arg = FnArg::Pat(None, pat, wild);
+            let arg = FnParam::Pat {
+                param_name: None,
+                fields,
+                wild,
+            };
             let span = Span::new(pat_span.lo, body.span.hi);
             let expr =
-                ExprType::Fn(FnType::Normal(Spanned::new(pat_span, arg), body.val));
+                ExprType::Fn(FnType::Normal { param: Spanned::new(pat_span, arg), body: body.val });
             return Ok(self.spanned(span, expr));
         }
 
@@ -471,10 +482,10 @@ impl<'a, 'b> Parser<'a, 'b> {
     #[allow(clippy::type_complexity)]
     fn parse_fn_pat(
         &mut self,
-    ) -> Result<(Span, Rc<HashMap<StrId, (Span, Option<ExprId>)>>, bool)> {
+    ) -> Result<(Span, Rc<HashMap<Spanned<StrId>, Option<ExprId>>>, bool)> {
         let opening = self.lexer.next().unwrap();
         let ctx = ErrorContext::ParseFnPattern(opening.span.lo);
-        let mut vars = HashMap::<_, (Span, _)>::new();
+        let mut vars = HashMap::<_, _>::new();
         let mut wild = false;
 
         loop {
@@ -518,13 +529,13 @@ impl<'a, 'b> Parser<'a, 'b> {
                 _ => None,
             };
 
-            match vars.entry(ident) {
+            match vars.entry(Spanned::new(span, ident)) {
                 Entry::Occupied(e) => {
                     return self
-                        .error(span, ErrorType::DuplicateIdentifier(ident, e.get().0))
+                        .error(span, ErrorType::DuplicateIdentifier(*e.key()))
                         .ctx(ctx);
                 }
-                Entry::Vacant(e) => e.insert((span, alt)),
+                Entry::Vacant(e) => e.insert(alt),
             };
 
             let next = self.lexer.peek(0).ctx(ctx)?;
@@ -601,7 +612,7 @@ impl<'a, 'b> Parser<'a, 'b> {
     fn parse_let(&mut self) -> Result<SExpr> {
         let let_ = self.lexer.next().unwrap();
         let ctx = ErrorContext::ParseLet(let_.span.lo);
-        let mut bindings = HashMap::<_, (Span, _)>::new();
+        let mut bindings = HashMap::<_, _>::new();
         loop {
             if self.lexer.peek(0).ctx(ctx)?.val == Token::In {
                 self.lexer.skip(1);
@@ -630,13 +641,13 @@ impl<'a, 'b> Parser<'a, 'b> {
                         .ctx(ctx);
                 }
             }
-            match bindings.entry(name) {
+            match bindings.entry(Spanned::new(span.span, name)) {
                 Entry::Occupied(e) => {
                     return self
-                        .error(span.span, ErrorType::DuplicateIdentifier(name, e.get().0))
+                        .error(span.span, ErrorType::DuplicateIdentifier(*e.key()))
                         .ctx(ctx);
                 }
-                Entry::Vacant(e) => e.insert((span.span, expr.val)),
+                Entry::Vacant(e) => e.insert(expr.val),
             };
         }
         bindings.shrink_to_fit();
@@ -752,7 +763,7 @@ impl<'a, 'b> Parser<'a, 'b> {
             }
             _ => false,
         };
-        let mut fields = HashMap::<_, (Span, _)>::new();
+        let mut fields = HashMap::new();
         loop {
             if self.lexer.peek(0).ctx(ctx)?.val == Token::RightBrace {
                 break;
@@ -765,16 +776,16 @@ impl<'a, 'b> Parser<'a, 'b> {
                         .next_assign()
                         .ctx(ErrorContext::ParseField(next.span.lo))?;
                     let expr = self.parse_expr()?;
-                    match fields.entry(ident) {
+                    match fields.entry(Spanned::new(next.span, ident)) {
                         Entry::Occupied(e) => {
                             return self
                                 .error(
                                     next.span,
-                                    ErrorType::DuplicateIdentifier(ident, e.get().0),
+                                    ErrorType::DuplicateIdentifier(*e.key()),
                                 )
                                 .ctx(ctx);
                         }
-                        Entry::Vacant(e) => e.insert((next.span, expr.val)),
+                        Entry::Vacant(e) => e.insert(expr.val),
                     };
                 }
                 Token::Inherit => loop {
@@ -786,21 +797,18 @@ impl<'a, 'b> Parser<'a, 'b> {
                         Token::Comma | Token::RightBrace => break,
                         Token::Ident(ident) => {
                             self.lexer.skip(1);
-                            match fields.entry(ident) {
+                            match fields.entry(Spanned::new(el.span, ident)) {
                                 Entry::Occupied(e) => {
                                     return self
                                         .error(
                                             el.span,
-                                            ErrorType::DuplicateIdentifier(
-                                                ident,
-                                                e.get().0,
-                                            ),
+                                            ErrorType::DuplicateIdentifier(*e.key()),
                                         )
                                         .ctx(ctx);
                                 }
                                 Entry::Vacant(e) => {
                                     let ex = self.spanned(el.span, ExprType::Inherit);
-                                    e.insert((el.span, ex.val));
+                                    e.insert(ex.val);
                                 }
                             };
                         }

@@ -312,16 +312,18 @@ impl ExprType {
     }
 }
 
-pub type Fields = Rc<HashMap<StrId, (Span, ExprId)>>;
+pub type Fields = Rc<HashMap<Spanned<StrId>, ExprId>>;
 
 #[derive(Clone)]
-pub enum FnArg {
-    Ident(StrId),
-    Pat(
-        Option<Spanned<StrId>>,
-        Rc<HashMap<StrId, (Span, Option<ExprId>)>>,
-        bool,
-    ),
+pub enum FnParam {
+    Ident {
+        param_name: StrId,
+    },
+    Pat {
+        param_name: Option<Spanned<StrId>>,
+        fields: Rc<HashMap<Spanned<StrId>, Option<ExprId>>>,
+        wild: bool,
+    },
 }
 
 pub trait BuiltInFn {
@@ -339,8 +341,13 @@ where
 
 #[derive(Clone)]
 pub enum FnType {
-    BuiltIn(Rc<dyn BuiltInFn>),
-    Normal(Spanned<FnArg>, ExprId),
+    BuiltIn {
+        func: Rc<dyn BuiltInFn>,
+    },
+    Normal {
+        param: Spanned<FnParam>,
+        body: ExprId,
+    },
 }
 
 impl Debug for FnType {

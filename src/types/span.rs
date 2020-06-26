@@ -3,6 +3,8 @@ use std::{
     fmt::{Debug, Formatter},
     ops::{Deref, DerefMut},
 };
+use std::borrow::Borrow;
+use std::hash::{Hash, Hasher};
 
 /// A span in a codemap.
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
@@ -42,10 +44,22 @@ impl Debug for Span {
 }
 
 /// An object with a span.
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Eq)]
 pub struct Spanned<T> {
     pub span: Span,
     pub val: T,
+}
+
+impl<T: PartialEq> PartialEq<Spanned<T>> for Spanned<T> {
+    fn eq(&self, other: &Spanned<T>) -> bool {
+        self.val == other.val
+    }
+}
+
+impl<T: Hash> Hash for Spanned<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.val.hash(state)
+    }
 }
 
 impl<T: Debug> Debug for Spanned<T> {
@@ -54,8 +68,13 @@ impl<T: Debug> Debug for Spanned<T> {
     }
 }
 
+impl<T> Borrow<T> for Spanned<T> {
+    fn borrow(&self) -> &T {
+        &self.val
+    }
+}
+
 impl<T> Spanned<T> {
-    /// Creates a new spanned elment.
     pub fn new(span: Span, val: T) -> Spanned<T> {
         Spanned { span, val }
     }
