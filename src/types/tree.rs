@@ -83,7 +83,7 @@ pub enum ExprType {
         el: ExprId,
     },
     /// `numer / denom`
-    Div { numer: ExprId, denom: ExprId },
+    Div { numer: ExprId, denom: ExprId, int: bool },
     /// `lhs == rhs`
     Eq { lhs: ExprId, rhs: ExprId },
     /// A function
@@ -108,7 +108,7 @@ pub enum ExprType {
     /// `lhs < rhs`
     Lt { lhs: ExprId, rhs: ExprId },
     /// `numer % denom`
-    Mod { numer: ExprId, denom: ExprId },
+    Mod { numer: ExprId, denom: ExprId, int: bool },
     /// `lhs * rhs`
     Mul { lhs: ExprId, rhs: ExprId },
     /// `lhs != rhs`

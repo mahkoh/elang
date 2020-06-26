@@ -6,13 +6,20 @@ use std::{
     fmt::{Debug, Formatter},
 };
 
+/// A value
 #[derive(Clone, Eq, PartialEq)]
 pub enum Value {
+    /// A boolean
     Bool(bool),
+    /// A list
     List(Box<[Value]>),
+    /// Null
     Null,
+    /// A number
     Number(BigRational),
+    /// A set
     Set(HashMap<Box<[u8]>, Value>),
+    /// A string
     String(Box<[u8]>),
 }
 

@@ -341,6 +341,8 @@ impl<'a, 'b> Lexer<'a, 'b> {
         keyword!(b"then", Then);
         keyword!(b"else", Else);
         keyword!(b"or", Or);
+        keyword!(b"int/", IntSlash);
+        keyword!(b"int%", IntPercent);
 
         if let Some((t, skip)) = tkn {
             self.chars.skip(skip);

@@ -72,6 +72,8 @@ pub enum Token {
     Overlay,
     AndAnd,
     OrOr,
+    IntSlash,
+    IntPercent,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -119,6 +121,8 @@ pub enum TokenType {
     Times,
     True,
     Unequal,
+    IntSlash,
+    IntPercent,
 }
 
 impl TokenType {
@@ -167,6 +171,8 @@ impl TokenType {
             TokenType::Times => "*",
             TokenType::True => "true",
             TokenType::Unequal => "!=",
+            TokenType::IntSlash => "int/",
+            TokenType::IntPercent => "int%",
         }
     }
 }
@@ -241,6 +247,8 @@ impl Token {
             Token::Overlay => false,
             Token::AndAnd => false,
             Token::OrOr => false,
+            Token::IntSlash => false,
+            Token::IntPercent => false,
         }
     }
 
@@ -290,6 +298,8 @@ impl Token {
             Token::Times => TokenType::Times,
             Token::True => TokenType::True,
             Token::Unequal => TokenType::Unequal,
+            Token::IntSlash => TokenType::IntSlash,
+            Token::IntPercent => TokenType::IntPercent,
         }
     }
 }

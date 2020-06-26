@@ -4,7 +4,6 @@ use std::{
     fmt,
     fmt::{Display, Formatter},
     fs::DirEntry,
-    os::unix::ffi::OsStrExt,
     rc::Rc,
 };
 
@@ -33,7 +32,7 @@ fn test(dir: DirEntry) -> bool {
 
     let mut diag = Diagnostic::new();
     let lo = diag.add_src(
-        Rc::from(in_path.as_os_str().as_bytes().to_vec().into_boxed_slice()),
+        Rc::from(format!("{}", in_path.display()).into_bytes().into_boxed_slice()),
         in_bytes.clone(),
     );
 

@@ -117,7 +117,7 @@ impl Elang {
     fn force_int(&mut self, expr: &Expr) -> Result {
         let ctx = ErrorContext::EvalArithmetic(expr.id);
 
-        let int = |slf: &mut Self, v| match slf.get_int_(v) {
+        let num = |slf: &mut Self, v| match slf.get_int_(v) {
             Ok(v) => Ok(v.clone()),
             Err(mut e) => {
                 e.context.push(ctx);
@@ -126,26 +126,28 @@ impl Elang {
         };
 
         let new = match *expr.val.borrow() {
-            ExprType::Add { lhs, rhs } => &*int(self, lhs)? + &*int(self, rhs)?,
-            ExprType::Sub { lhs, rhs } => &*int(self, lhs)? - &*int(self, rhs)?,
-            ExprType::Mul { lhs, rhs } => &*int(self, lhs)? * &*int(self, rhs)?,
-            ExprType::Div { numer, denom } => {
-                let numer = int(self, numer)?;
-                let denom_ = int(self, denom)?;
+            ExprType::Add { lhs, rhs } => &*num(self, lhs)? + &*num(self, rhs)?,
+            ExprType::Sub { lhs, rhs } => &*num(self, lhs)? - &*num(self, rhs)?,
+            ExprType::Mul { lhs, rhs } => &*num(self, lhs)? * &*num(self, rhs)?,
+            ExprType::Div { numer, denom, int } => {
+                let numer = num(self, numer)?;
+                let denom_ = num(self, denom)?;
                 if *denom_ == BigRational::zero() {
                     return self.error(denom, ErrorType::DivideByZero).ctx(ctx);
                 }
-                &*numer / &*denom_
+                let res = &*numer / &*denom_;
+                if int { res.trunc() } else { res }
             }
-            ExprType::Mod { numer, denom } => {
-                let numer = int(self, numer)?;
-                let denom_ = int(self, denom)?;
+            ExprType::Mod { numer, denom, int } => {
+                let numer = num(self, numer)?;
+                let denom_ = num(self, denom)?;
                 if *denom_ == BigRational::zero() {
                     return self.error(denom, ErrorType::DivideByZero).ctx(ctx);
                 }
-                &*numer % &*denom_
+                let res = &*numer % &*denom_;
+                if int { res.trunc() } else { res }
             }
-            ExprType::Neg { val } => (*int(self, val)?).clone().neg(),
+            ExprType::Neg { val } => (*num(self, val)?).clone().neg(),
             _ => unreachable!(),
         };
 
@@ -474,10 +476,12 @@ impl Elang {
             | ExprType::Div {
                 numer: lhs,
                 denom: rhs,
+                int: _,
             }
             | ExprType::Mod {
                 numer: lhs,
                 denom: rhs,
+                int: _,
             }
             | ExprType::Gt { lhs, rhs }
             | ExprType::Lt { lhs, rhs }
