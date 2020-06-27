@@ -6,5 +6,6 @@ pub mod span;
 pub mod stack;
 pub mod store;
 pub mod token;
+pub mod token_stream;
 pub mod tree;
 pub mod value;

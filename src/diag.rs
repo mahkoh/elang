@@ -295,6 +295,7 @@ impl Diagnostic {
             ErrorType::CannotStringifyNonInteger => {
                 format!("cannot stringify numbers that are not integers")
             }
+            ErrorType::UnmatchedToken(tt) => format!("unmatched token `{}`", tt.as_str()),
         };
         self.common(msg.span, "error: ", &text);
         self.trace(e, msg);

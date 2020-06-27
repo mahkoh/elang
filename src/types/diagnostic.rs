@@ -74,6 +74,7 @@ pub enum ErrorType {
     SpanOverflow,
     AssertionFailed,
     Custom(Rc<dyn std::error::Error + 'static>),
+    UnmatchedToken(TokenType),
 }
 
 #[derive(Copy, Clone, Debug)]

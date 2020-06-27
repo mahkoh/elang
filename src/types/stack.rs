@@ -1,6 +1,6 @@
 use crate::types::{
     op::Op,
-    span::{Span, Spanned},
+    span::Span,
     store::Store,
     tree::{ExprId, ExprType, SExpr},
 };
@@ -108,10 +108,26 @@ impl Stack {
             Op::Add => |lhs, rhs| ExprType::Add { lhs, rhs },
             Op::Sub => |lhs, rhs| ExprType::Sub { lhs, rhs },
             Op::Mul => |lhs, rhs| ExprType::Mul { lhs, rhs },
-            Op::Div(true) => |numer, denom| ExprType::Div { numer, denom, int: true },
-            Op::Mod(true) => |numer, denom| ExprType::Mod { numer, denom, int: true },
-            Op::Div(false) => |numer, denom| ExprType::Div { numer, denom, int: false },
-            Op::Mod(false) => |numer, denom| ExprType::Mod { numer, denom, int: false },
+            Op::Div(true) => |numer, denom| ExprType::Div {
+                numer,
+                denom,
+                int: true,
+            },
+            Op::Mod(true) => |numer, denom| ExprType::Mod {
+                numer,
+                denom,
+                int: true,
+            },
+            Op::Div(false) => |numer, denom| ExprType::Div {
+                numer,
+                denom,
+                int: false,
+            },
+            Op::Mod(false) => |numer, denom| ExprType::Mod {
+                numer,
+                denom,
+                int: false,
+            },
             Op::Concat => |lhs, rhs| ExprType::Concat { lhs, rhs },
             Op::Apl => |func, arg| ExprType::Apl { func, arg },
 
@@ -122,7 +138,7 @@ impl Stack {
             Op::Not(..) | Op::UnMin(..) => unreachable!(),
         };
         let span = Span::new(left.span.lo, right.span.hi);
-        let expr = Spanned::new(span, store.add_expr(span, expr(left.val, right.val)));
+        let expr = span.span(store.add_expr(span, expr(left.val, right.val)));
         self.expr.push(expr)
     }
 
@@ -137,7 +153,7 @@ impl Stack {
             _ => unreachable!(),
         };
         let span = Span::new(lo, arg.span.hi);
-        let expr = Spanned::new(span, store.add_expr(span, expr(arg.val)));
+        let expr = span.span(store.add_expr(span, expr(arg.val)));
         self.expr.push(expr)
     }
 }

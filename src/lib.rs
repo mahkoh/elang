@@ -1,6 +1,7 @@
 #![allow(clippy::len_zero)]
 #![allow(clippy::new_without_default)]
 
+use crate::types::store::Store;
 pub use crate::{
     diag::Diagnostic,
     types::{
@@ -13,7 +14,6 @@ pub use crate::{
         value::Value,
     },
 };
-use crate::{lexer::Lexer, parser::Parser, types::store::Store};
 use num_rational::BigRational;
 use std::{collections::HashMap, convert::TryInto, rc::Rc};
 
@@ -66,9 +66,8 @@ impl Elang {
         if overflow {
             return self.err(ErrorType::SpanOverflow);
         }
-        let lexer = Lexer::new(lo, src, &mut self.store);
-        let mut parser = Parser::new(lexer);
-        parser.parse()
+        let tokens = lexer::lex(lo, src, &mut self.store)?;
+        parser::parse(&mut self.store, tokens)
     }
 
     fn err<T>(&self, details: ErrorType) -> Result<T> {

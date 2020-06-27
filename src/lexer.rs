@@ -1,52 +1,48 @@
 use crate::types::{
-    diagnostic::{Error, ErrorContext, ErrorType, TokenAlternative},
+    diagnostic::{Error, ErrorContext, ErrorType},
     result::{Result, ResultUtil},
     span::{Span, Spanned},
-    store::{Store, StrId},
+    store::Store,
     token::{SToken, Token, TokenType},
+    token_stream::TokenStream,
 };
-use std::collections::VecDeque;
 
-pub struct CharStream<'a> {
+pub fn lex(lo: u32, src: &[u8], store: &mut Store) -> Result<TokenStream> {
+    let mut lexer = Lexer::new(lo, src, store);
+    lexer.lex()?;
+    Ok(TokenStream::new(
+        lexer.res.into_boxed_slice(),
+        lo + src.len() as u32,
+    ))
+}
+
+struct CharStream<'a> {
     src: &'a [u8],
-    peek: VecDeque<(u32, u8)>,
     pos: usize,
 }
 
 impl<'a> CharStream<'a> {
     fn next(&mut self) -> Option<(u32, u8)> {
-        if self.peek.len() > 0 {
-            return self.peek.pop_front();
-        }
-        self.real_next()
-    }
-
-    fn skip(&mut self, n: usize) {
-        for _ in 0..n {
-            let _ = self.next();
-        }
-    }
-
-    fn real_next(&mut self) -> Option<(u32, u8)> {
-        let head = &self.src[self.pos..];
-        if head.len() > 0 {
+        let pos = self.pos;
+        if pos < self.src.len() {
             self.pos += 1;
-            Some(((self.pos - 1) as u32, head[0]))
+            Some((pos as u32, self.src[pos]))
         } else {
             None
         }
     }
 
+    fn skip(&mut self, n: usize) {
+        self.pos += n;
+    }
+
     fn peek(&mut self, n: usize) -> Option<(u32, u8)> {
-        if self.peek.len() <= n {
-            for _ in 0..(n + 1 - self.peek.len()) {
-                match self.real_next() {
-                    Some(c) => self.peek.push_back(c),
-                    _ => return None,
-                }
-            }
+        let pos = self.pos + n;
+        if pos < self.src.len() {
+            Some((pos as u32, self.src[pos]))
+        } else {
+            None
         }
-        Some(self.peek[n])
     }
 
     fn peek_char(&mut self, n: usize) -> Option<u8> {
@@ -54,190 +50,96 @@ impl<'a> CharStream<'a> {
     }
 
     fn pos(&self) -> u32 {
-        if self.peek.len() > 0 {
-            self.peek[0].0
-        } else {
-            self.pos as u32
-        }
+        self.pos as u32
     }
 
     fn text(&self) -> &[u8] {
-        &self.src[self.pos() as usize..]
+        &self.src[self.pos..]
     }
 }
 
-pub struct Lexer<'a, 'b> {
-    pub(crate) store: &'b mut Store,
-    peek: VecDeque<SToken>,
-    lo: u32,
-    pub chars: CharStream<'a>,
+#[derive(PartialEq)]
+enum BraceType {
+    Plain,
+    String,
 }
 
-macro_rules! next_t {
-    ($slf:expr, $pat:pat, $ty:expr) => {
-        match $slf.next()? {
-            t @ Spanned { val: $pat, .. } => Ok(t),
-            t => $slf.error(
-                t.span,
-                ErrorType::UnexpectedToken(TokenAlternative::List(&[$ty]), t.ty()),
-            ),
-        }
-    };
+struct Lexer<'a, 'b> {
+    store: &'b mut Store,
+    lo: u32,
+    chars: CharStream<'a>,
+    braces: Vec<Spanned<BraceType>>,
+    res: Vec<SToken>,
 }
 
 impl<'a, 'b> Lexer<'a, 'b> {
-    pub fn new(lo: u32, src: &'a [u8], store: &'b mut Store) -> Self {
+    fn new(lo: u32, src: &'a [u8], store: &'b mut Store) -> Self {
         Lexer {
             store,
-            peek: VecDeque::new(),
             lo,
-            chars: CharStream {
-                src,
-                peek: VecDeque::new(),
-                pos: 0,
-            },
+            chars: CharStream { src, pos: 0 },
+            braces: vec![],
+            res: vec![],
         }
     }
 
-    pub fn pos(&self) -> u32 {
-        self.lo + self.chars.pos()
-    }
-
-    fn skip_whitespace(&mut self) {
-        while let Some(b' ') | Some(b'\t') | Some(b'\r') | Some(b'\n') =
-            self.chars.peek_char(0)
-        {
-            self.chars.skip(1);
+    fn lex(&mut self) -> Result {
+        while self.lex_one()? {
+            //
         }
+        if let Some(t) = self.braces.pop() {
+            return self.error(t.span, ErrorType::UnmatchedToken(TokenType::LeftBrace));
+        }
+        Ok(())
     }
 
-    fn skip_line(&mut self) {
+    fn skip_whitespace_and_comments(&mut self) {
+        let c = &mut self.chars;
         loop {
-            match self.chars.next() {
-                Some((_, b'\n')) | None => break,
-                _ => {}
-            }
-        }
-    }
-
-    pub fn eof(&mut self) -> Result<bool> {
-        Ok(self.try_peek(0)?.is_none())
-    }
-
-    fn unexpected_eof<T>(&self) -> Result<T> {
-        let lo = self.lo + self.chars.src.len() as u32 - 1;
-        self.error(Span::new(lo, lo + 1), ErrorType::UnexpectedEndOfInput)
-    }
-
-    pub fn peek(&mut self, n: usize) -> Result<SToken> {
-        match self.try_peek(n)? {
-            Some(t) => Ok(t),
-            _ => self.unexpected_eof(),
-        }
-    }
-
-    pub fn try_peek(&mut self, n: usize) -> Result<Option<SToken>> {
-        if self.peek.len() <= n {
-            for _ in 0..(n + 1 - self.peek.len()) {
-                match self.real_next()? {
-                    Some(c) => self.peek.push_back(c),
-                    _ => return Ok(None),
+            // skip whitespace
+            loop {
+                match c.peek_char(0) {
+                    Some(b' ') | Some(b'\t') | Some(b'\r') | Some(b'\n') => c.skip(1),
+                    _ => break,
                 }
             }
-        }
-        Ok(Some(self.peek[n]))
-    }
-
-    pub fn next_ident(&mut self) -> Result<(SToken, StrId)> {
-        let t = self.next()?;
-        match t.val {
-            Token::Ident(id) => Ok((t, id)),
-            _ => self.error(
-                t.span,
-                ErrorType::UnexpectedToken(
-                    TokenAlternative::List(&[TokenType::Ident]),
-                    t.ty(),
-                ),
-            ),
-        }
-    }
-
-    pub fn next_assign(&mut self) -> Result<SToken> {
-        next_t!(self, Token::Equals, TokenType::Equals)
-    }
-
-    pub fn next_then(&mut self) -> Result<SToken> {
-        next_t!(self, Token::Then, TokenType::Then)
-    }
-
-    pub fn next_else(&mut self) -> Result<SToken> {
-        next_t!(self, Token::Else, TokenType::Else)
-    }
-
-    pub fn next_left_brace(&mut self) -> Result<SToken> {
-        next_t!(self, Token::LeftBrace, TokenType::LeftBrace)
-    }
-
-    pub fn next_right_brace(&mut self) -> Result<SToken> {
-        next_t!(self, Token::RightBrace, TokenType::RightBrace)
-    }
-
-    pub fn next_right_paren(&mut self) -> Result<SToken> {
-        next_t!(self, Token::RightParen, TokenType::RightParen)
-    }
-
-    pub fn next_colon(&mut self) -> Result<SToken> {
-        next_t!(self, Token::Colon, TokenType::Colon)
-    }
-
-    #[allow(clippy::should_implement_trait)]
-    pub fn next(&mut self) -> Result<SToken> {
-        match self.try_next()? {
-            Some(t) => Ok(t),
-            _ => self.unexpected_eof(),
-        }
-    }
-
-    pub fn try_next(&mut self) -> Result<Option<SToken>> {
-        if self.peek.len() > 0 {
-            return Ok(self.peek.pop_front());
-        }
-        self.real_next()
-    }
-
-    pub fn skip(&mut self, n: usize) {
-        for _ in 0..n {
-            let _ = self.try_next();
-        }
-    }
-
-    fn real_next(&mut self) -> Result<Option<SToken>> {
-        loop {
-            self.skip_whitespace();
-            if Some(b'/') == self.chars.peek_char(0)
-                && Some(b'/') == self.chars.peek_char(1)
-            {
-                self.skip_line();
-            } else {
-                break;
+            // skip comment
+            match (c.peek_char(0), c.peek_char(1)) {
+                (Some(b'/'), Some(b'/')) => loop {
+                    match c.next() {
+                        Some((_, b'\n')) | None => break,
+                        _ => {}
+                    }
+                }
+                _ => break,
             }
         }
+    }
 
-        let (cur_pos, cur) = match self.chars.peek(0) {
-            Some(c) => c,
-            _ => return Ok(None),
-        };
+    fn lex_one(&mut self) -> Result<bool> {
+        self.skip_whitespace_and_comments();
+        match self.chars.peek(0) {
+            Some(c) => {
+                self.lex_one_(c)?;
+                Ok(true)
+            }
+            _ => Ok(false),
+        }
+    }
 
+    ///
+    fn lex_one_(&mut self, (cur_pos, cur): (u32, u8)) -> Result {
+        // Step 1: Strings
         if cur == b'"' {
-            return self.string(false).map(Some);
+            let span = Span::new(self.pos(), self.pos() + 1);
+            self.res.push(span.span(Token::StringStart));
+            self.chars.skip(1);
+            return self.string(span.lo);
         }
 
         macro_rules! ret {
             ($ty:ident) => {
-                return Ok(Some(Spanned::new(
-                    Span::new(self.lo + cur_pos, self.pos()),
-                    $ty,
-                )));
+                Spanned::new(Span::new(self.lo + cur_pos, self.pos()), $ty);
             };
         }
 
@@ -249,6 +151,7 @@ impl<'a, 'b> Lexer<'a, 'b> {
             };
         }
 
+        // Step 2: Unambiguous single-character tokens
         match cur {
             b'[' => one!(LeftBracket),
             b']' => one!(RightBracket),
@@ -268,7 +171,25 @@ impl<'a, 'b> Lexer<'a, 'b> {
 
         if let Some((t, _)) = tkn {
             self.chars.skip(1);
-            ret!(t);
+            let res = ret!(t);
+            self.res.push(res);
+            match t {
+                Token::LeftBrace => self.braces.push(res.span.span(BraceType::Plain)),
+                Token::RightBrace => {
+                    let ty = match self.braces.pop() {
+                        Some(t) => t,
+                        _ => {
+                            return self
+                                .error(res.span, ErrorType::UnmatchedToken(t.ty()))
+                        }
+                    };
+                    if *ty == BraceType::String {
+                        self.string(res.span.lo)?;
+                    }
+                }
+                _ => {}
+            }
+            return Ok(());
         }
 
         macro_rules! two {
@@ -277,31 +198,31 @@ impl<'a, 'b> Lexer<'a, 'b> {
             };
         }
 
-        if let Some(c) = self.chars.peek_char(1) {
-            match (cur, c) {
-                (b'\\', b'\\') => two!(BackslashBackslash),
-                (b'&', b'&') => two!(AmpersandAmpersand),
-                (b'|', b'|') => two!(BarBar),
-                (b'.', b'.') => two!(DotDot),
-                (b'.', _) => one!(Dot),
-                (b'=', b'=') => two!(EqualsEquals),
-                (b'=', _) => one!(Equals),
-                (b'!', b'=') => two!(ExclamationMarkEquals),
-                (b'!', _) => one!(ExclamationMark),
-                (b'<', b'=') => two!(LeftAngleEquals),
-                (b'<', _) => one!(LeftAngle),
-                (b'>', b'=') => two!(RightAngleEquals),
-                (b'>', _) => one!(RightAngle),
-                (b'+', b'+') => two!(PlusPlus),
-                (b'+', _) => one!(Plus),
-                (b'-', _) => one!(Minus),
-                _ => {}
-            }
+        // Step 3: Two-character tokens and ambiguous single-character tokens
+        match (cur, self.chars.peek_char(1)) {
+            (b'\\', Some(b'\\')) => two!(BackslashBackslash),
+            (b'&', Some(b'&')) => two!(AmpersandAmpersand),
+            (b'|', Some(b'|')) => two!(BarBar),
+            (b'.', Some(b'.')) => two!(DotDot),
+            (b'.', _) => one!(Dot),
+            (b'=', Some(b'=')) => two!(EqualsEquals),
+            (b'=', _) => one!(Equals),
+            (b'!', Some(b'=')) => two!(ExclamationMarkEquals),
+            (b'!', _) => one!(ExclamationMark),
+            (b'<', Some(b'=')) => two!(LeftAngleEquals),
+            (b'<', _) => one!(LeftAngle),
+            (b'>', Some(b'=')) => two!(RightAngleEquals),
+            (b'>', _) => one!(RightAngle),
+            (b'+', Some(b'+')) => two!(PlusPlus),
+            (b'+', _) => one!(Plus),
+            (b'-', _) => one!(Minus),
+            _ => {}
         }
 
         if let Some((t, two)) = tkn {
             self.chars.skip(1 + two as usize);
-            ret!(t);
+            self.res.push(ret!(t));
+            return Ok(());
         }
 
         let mut tkn = None;
@@ -330,6 +251,7 @@ impl<'a, 'b> Lexer<'a, 'b> {
             };
         }
 
+        // Step 4: Keywords
         keyword!(b"true", True);
         keyword!(b"false", False);
         keyword!(b"null", Null);
@@ -346,23 +268,23 @@ impl<'a, 'b> Lexer<'a, 'b> {
 
         if let Some((t, skip)) = tkn {
             self.chars.skip(skip);
-            ret!(t);
+            self.res.push(ret!(t));
+            return Ok(());
         }
 
+        // Step 5: Numbers
         if let b'0'..=b'9' = cur {
-            return self.number().map(Some);
+            self.number()?;
+            return Ok(());
         }
 
-        macro_rules! is_ident_start {
-            ($c:expr) => {
-                match $c {
-                    b'a'..=b'z' | b'A'..=b'Z' | b'_' => true,
-                    _ => false,
-                }
-            };
-        }
+        let is_ident_start = match cur {
+            b'a'..=b'z' | b'A'..=b'Z' | b'_' => true,
+            _ => false,
+        };
 
-        if is_ident_start!(cur) {
+        // Step 6: Identifiers
+        if is_ident_start {
             let mut i = 1;
             while let Some(c) = self.chars.peek_char(i) {
                 if is_ident_cont!(c) {
@@ -374,10 +296,11 @@ impl<'a, 'b> Lexer<'a, 'b> {
             let ident = self.chars.text()[..i].to_vec();
             let ident = self.store.add_str(ident.into_boxed_slice().into());
             self.chars.skip(i);
-            return Ok(Some(Spanned::new(
+            self.res.push(Spanned::new(
                 Span::new(self.lo + cur_pos, self.pos()),
                 Token::Ident(ident),
-            )));
+            ));
+            return Ok(());
         }
 
         self.error(
@@ -386,23 +309,7 @@ impl<'a, 'b> Lexer<'a, 'b> {
         )
     }
 
-    pub fn string(&mut self, is_cont: bool) -> Result<SToken> {
-        self.string_(is_cont)
-    }
-
-    fn string_(&mut self, is_cont: bool) -> Result<SToken> {
-        let start = if is_cont {
-            let b = self.next_right_brace()?;
-            self.chars.peek.clear();
-            self.chars.pos = (b.span.hi - self.lo) as usize;
-            self.peek.clear();
-            b.span.lo
-        } else {
-            let pos = self.pos();
-            self.chars.skip(1); // eat the "
-            pos
-        };
-
+    fn string(&mut self, start: u32) -> Result {
         let mut res = Vec::new();
         loop {
             let (esc_pos, cur) = match self.chars.next() {
@@ -434,7 +341,11 @@ impl<'a, 'b> Lexer<'a, 'b> {
                 b'{' => {
                     let id = self.store.add_str(res.into_boxed_slice().into());
                     let span = Span::new(start, self.pos());
-                    return Ok(Spanned::new(span, Token::StringPart(id)));
+                    let bspan = Span::new(span.hi - 1, span.hi);
+                    self.res.push(span.span(Token::String(id)));
+                    self.res.push(bspan.span(Token::LeftBrace));
+                    self.braces.push(bspan.span(BraceType::String));
+                    return Ok(());
                 }
                 _ => {
                     return self.error(
@@ -444,16 +355,31 @@ impl<'a, 'b> Lexer<'a, 'b> {
                 }
             }
         }
+        let span = Span::new(start, self.pos());
+        let espan = Span::new(span.hi - 1, span.hi);
         let id = self.store.add_str(res.into_boxed_slice().into());
-        Ok(Spanned::new(
-            Span::new(start, self.pos()),
-            Token::String(id),
-        ))
+        self.res.push(span.span(Token::String(id)));
+        self.res.push(espan.span(Token::StringEnd));
+        Ok(())
     }
 
     fn unicode_escape(&mut self) -> Result<char> {
-        self.next_left_brace()?;
-        self.skip_whitespace();
+        macro_rules! next {
+            ($b:expr) => {
+                match self.chars.next() {
+                    Some((_, $b)) => {}
+                    Some((pos, b)) => {
+                        return self.error(
+                            Span::new(pos, self.pos()),
+                            ErrorType::UnexpectedByte(b),
+                        )
+                    }
+                    _ => return self.unexpected_eof(),
+                }
+            };
+        }
+
+        next!(b'{');
         let before = self.pos();
         let mut len = 0;
         let mut val = 0u32;
@@ -484,14 +410,14 @@ impl<'a, 'b> Lexer<'a, 'b> {
             );
         }
         let after = self.pos();
-        let _ = self.next_right_brace()?;
+        next!(b'}');
         match std::char::from_u32(val) {
             Some(c) => Ok(c),
             _ => self.error(Span::new(before, after), ErrorType::InvalidCodePoint(val)),
         }
     }
 
-    fn number(&mut self) -> Result<SToken> {
+    fn number(&mut self) -> Result {
         let mut saw_dot = false;
         let mut post_dot_places = 0;
         let mut res = vec![];
@@ -545,10 +471,18 @@ impl<'a, 'b> Lexer<'a, 'b> {
             return self.error(span, ErrorType::EmptyNumberLiteral);
         }
         let value = self.store.add_str(res.into_boxed_slice().into());
-        Ok(Spanned::new(
-            span,
-            Token::Number(value, base, post_dot_places),
-        ))
+        self.res
+            .push(span.span(Token::Number(value, base, post_dot_places)));
+        Ok(())
+    }
+
+    fn pos(&self) -> u32 {
+        self.lo + self.chars.pos()
+    }
+
+    fn unexpected_eof<T>(&self) -> Result<T> {
+        let lo = self.lo + self.chars.src.len() as u32 - 1;
+        self.error(Span::new(lo, lo + 1), ErrorType::UnexpectedEndOfInput)
     }
 
     fn error<T>(&self, span: Span, error: ErrorType) -> Result<T> {

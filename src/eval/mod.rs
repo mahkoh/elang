@@ -123,18 +123,58 @@ impl Elang {
                 ExprType::Mul { lhs, rhs } => {
                     bin!(|lhs, rhs| ExprType::Mul { lhs, rhs }, lhs, rhs)
                 }
-                ExprType::Div { numer, denom, int: true } => {
-                    bin!(|numer, denom| ExprType::Div { numer, denom, int: true }, numer, denom)
-                }
-                ExprType::Mod { numer, denom, int: true } => {
-                    bin!(|numer, denom| ExprType::Mod { numer, denom, int: true }, numer, denom)
-                }
-                ExprType::Div { numer, denom, int: false } => {
-                    bin!(|numer, denom| ExprType::Div { numer, denom, int: false }, numer, denom)
-                }
-                ExprType::Mod { numer, denom, int: false } => {
-                    bin!(|numer, denom| ExprType::Mod { numer, denom, int: false }, numer, denom)
-                }
+                ExprType::Div {
+                    numer,
+                    denom,
+                    int: true,
+                } => bin!(
+                    |numer, denom| ExprType::Div {
+                        numer,
+                        denom,
+                        int: true
+                    },
+                    numer,
+                    denom
+                ),
+                ExprType::Mod {
+                    numer,
+                    denom,
+                    int: true,
+                } => bin!(
+                    |numer, denom| ExprType::Mod {
+                        numer,
+                        denom,
+                        int: true
+                    },
+                    numer,
+                    denom
+                ),
+                ExprType::Div {
+                    numer,
+                    denom,
+                    int: false,
+                } => bin!(
+                    |numer, denom| ExprType::Div {
+                        numer,
+                        denom,
+                        int: false
+                    },
+                    numer,
+                    denom
+                ),
+                ExprType::Mod {
+                    numer,
+                    denom,
+                    int: false,
+                } => bin!(
+                    |numer, denom| ExprType::Mod {
+                        numer,
+                        denom,
+                        int: false
+                    },
+                    numer,
+                    denom
+                ),
                 ExprType::Gt { lhs, rhs } => {
                     bin!(|lhs, rhs| ExprType::Gt { lhs, rhs }, lhs, rhs)
                 }
@@ -303,7 +343,7 @@ impl Elang {
                     },
             } => ExprType::Fn {
                 func: FnType::Normal {
-                    param: Spanned::new(span, FnParam::Ident { param_name }),
+                    param: span.span(FnParam::Ident { param_name }),
                     body: copy!(body),
                 },
             },
@@ -334,7 +374,7 @@ impl Elang {
                 };
                 ExprType::Fn {
                     func: FnType::Normal {
-                        param: Spanned::new(span, pat),
+                        param: span.span(pat),
                         body: copy!(body),
                     },
                 }

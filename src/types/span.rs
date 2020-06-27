@@ -35,6 +35,10 @@ impl Span {
     pub fn hi(self) -> u32 {
         self.hi
     }
+
+    pub(crate) fn span<T>(self, t: T) -> Spanned<T> {
+        Spanned::new(self, t)
+    }
 }
 
 impl Debug for Span {

@@ -118,7 +118,7 @@ impl Elang {
         let ctx = ErrorContext::EvalArithmetic(expr.id);
 
         let num = |slf: &mut Self, v| match slf.get_int_(v) {
-            Ok(v) => Ok(v.clone()),
+            Ok(v) => Ok(v),
             Err(mut e) => {
                 e.context.push(ctx);
                 Err(e)
@@ -136,7 +136,11 @@ impl Elang {
                     return self.error(denom, ErrorType::DivideByZero).ctx(ctx);
                 }
                 let res = &*numer / &*denom_;
-                if int { res.trunc() } else { res }
+                if int {
+                    res.trunc()
+                } else {
+                    res
+                }
             }
             ExprType::Mod { numer, denom, int } => {
                 let numer = num(self, numer)?;
@@ -145,7 +149,11 @@ impl Elang {
                     return self.error(denom, ErrorType::DivideByZero).ctx(ctx);
                 }
                 let res = &*numer % &*denom_;
-                if int { res.trunc() } else { res }
+                if int {
+                    res.trunc()
+                } else {
+                    res
+                }
             }
             ExprType::Neg { val } => (*num(self, val)?).clone().neg(),
             _ => unreachable!(),

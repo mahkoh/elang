@@ -32,7 +32,11 @@ fn test(dir: DirEntry) -> bool {
 
     let mut diag = Diagnostic::new();
     let lo = diag.add_src(
-        Rc::from(format!("{}", in_path.display()).into_bytes().into_boxed_slice()),
+        Rc::from(
+            format!("{}", in_path.display())
+                .into_bytes()
+                .into_boxed_slice(),
+        ),
         in_bytes.clone(),
     );
 
