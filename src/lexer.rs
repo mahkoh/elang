@@ -163,7 +163,7 @@ impl<'a, 'b> Lexer<'a, 'b> {
     }
 
     pub fn next_assign(&mut self) -> Result<SToken> {
-        next_t!(self, Token::Assign, TokenType::Assign)
+        next_t!(self, Token::Equals, TokenType::Equals)
     }
 
     pub fn next_then(&mut self) -> Result<SToken> {
@@ -258,11 +258,11 @@ impl<'a, 'b> Lexer<'a, 'b> {
             b')' => one!(RightParen),
             b':' => one!(Colon),
             b',' => one!(Comma),
-            b'*' => one!(Times),
-            b'/' => one!(Div),
-            b'?' => one!(Questionmark),
+            b'*' => one!(Star),
+            b'/' => one!(Slash),
+            b'?' => one!(QuestionMark),
             b'@' => one!(At),
-            b'%' => one!(Mod),
+            b'%' => one!(Percent),
             _ => {}
         }
 
@@ -279,20 +279,20 @@ impl<'a, 'b> Lexer<'a, 'b> {
 
         if let Some(c) = self.chars.peek_char(1) {
             match (cur, c) {
-                (b'\\', b'\\') => two!(Overlay),
-                (b'&', b'&') => two!(AndAnd),
-                (b'|', b'|') => two!(OrOr),
+                (b'\\', b'\\') => two!(BackslashBackslash),
+                (b'&', b'&') => two!(AmpersandAmpersand),
+                (b'|', b'|') => two!(BarBar),
                 (b'.', b'.') => two!(DotDot),
                 (b'.', _) => one!(Dot),
-                (b'=', b'=') => two!(Equals),
-                (b'=', _) => one!(Assign),
-                (b'!', b'=') => two!(Unequal),
-                (b'!', _) => one!(Not),
-                (b'<', b'=') => two!(Le),
-                (b'<', _) => one!(Lt),
-                (b'>', b'=') => two!(Ge),
-                (b'>', _) => one!(Gt),
-                (b'+', b'+') => two!(Concat),
+                (b'=', b'=') => two!(EqualsEquals),
+                (b'=', _) => one!(Equals),
+                (b'!', b'=') => two!(ExclamationMarkEquals),
+                (b'!', _) => one!(ExclamationMark),
+                (b'<', b'=') => two!(LeftAngleEquals),
+                (b'<', _) => one!(LeftAngle),
+                (b'>', b'=') => two!(RightAngleEquals),
+                (b'>', _) => one!(RightAngle),
+                (b'+', b'+') => two!(PlusPlus),
                 (b'+', _) => one!(Plus),
                 (b'-', _) => one!(Minus),
                 _ => {}

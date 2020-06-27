@@ -64,7 +64,7 @@ impl<'a, 'b> Parser<'a, 'b> {
             loop {
                 let cur = self.lexer.peek(0)?;
                 if match cur.val {
-                    Token::Not => {
+                    Token::ExclamationMark => {
                         stack.push_op(&mut self.lexer.store, Op::Not(cur.span.lo));
                         true
                     }
@@ -95,24 +95,24 @@ impl<'a, 'b> Parser<'a, 'b> {
 
                 let next = self.lexer.peek(0)?;
                 let op = match next.val {
-                    Token::OrOr => Op::Or,
-                    Token::AndAnd => Op::And,
-                    Token::Le => Op::Le,
-                    Token::Ge => Op::Ge,
-                    Token::Lt => Op::Lt,
-                    Token::Gt => Op::Gt,
-                    Token::Equals => Op::Eq,
-                    Token::Unequal => Op::Ne,
-                    Token::Overlay => Op::Overlay,
+                    Token::BarBar => Op::Or,
+                    Token::AmpersandAmpersand => Op::And,
+                    Token::LeftAngleEquals => Op::Le,
+                    Token::RightAngleEquals => Op::Ge,
+                    Token::LeftAngle => Op::Lt,
+                    Token::RightAngle => Op::Gt,
+                    Token::EqualsEquals => Op::Eq,
+                    Token::ExclamationMarkEquals => Op::Ne,
+                    Token::BackslashBackslash => Op::Overlay,
                     Token::Plus => Op::Add,
                     Token::Minus => Op::Sub,
-                    Token::Times => Op::Mul,
-                    Token::Div => Op::Div(false),
+                    Token::Star => Op::Mul,
+                    Token::Slash => Op::Div(false),
                     Token::IntSlash => Op::Div(true),
-                    Token::Mod => Op::Mod(false),
+                    Token::Percent => Op::Mod(false),
                     Token::IntPercent => Op::Mod(true),
-                    Token::Concat => Op::Concat,
-                    Token::Questionmark => Op::Test,
+                    Token::PlusPlus => Op::Concat,
+                    Token::QuestionMark => Op::Test,
                     Token::Dot => Op::Select,
                     t if t.starts_expr() => Op::Apl,
                     _ => break 'outer,
@@ -246,7 +246,7 @@ impl<'a, 'b> Parser<'a, 'b> {
                     } else if let Token::Ident(..) = one.val {
                         if let Some(two) = self.lexer.try_peek(2)? {
                             if two.val == Token::Comma
-                                || two.val == Token::Questionmark
+                                || two.val == Token::QuestionMark
                                 || two.val == Token::RightBrace
                             {
                                 // { ident,                }
@@ -566,7 +566,7 @@ impl<'a, 'b> Parser<'a, 'b> {
                 .ctx(ErrorContext::ParseField(span.lo))
                 .ctx(ctx)?;
             let alt = match next.val {
-                Token::Questionmark => {
+                Token::QuestionMark => {
                     self.lexer.skip(1);
                     Some(self.parse_expr()?.val)
                 }
