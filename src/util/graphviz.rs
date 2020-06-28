@@ -94,14 +94,14 @@ fn print_tree_<W: Write>(
                 pt!(e)
             }
         }
-        ExprType::Set {
+        ExprType::Map {
             ref fields,
             recursive,
         } => {
             if recursive {
-                write!(w, "{} [shape=\"box\", label=\"rec set\"];", id)?;
+                write!(w, "{} [shape=\"box\", label=\"rec map\"];", id)?;
             } else {
-                write!(w, "{} [shape=\"box\", label=\"set\"];", id)?;
+                write!(w, "{} [shape=\"box\", label=\"map\"];", id)?;
             }
             let sid = *id;
             for el in fields.iter() {

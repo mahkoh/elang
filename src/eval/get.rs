@@ -79,7 +79,7 @@ impl Elang {
         self.error(
             expr,
             match *sel {
-                ExprType::Ident { name } => ErrorType::MissingSetField(name),
+                ExprType::Ident { name } => ErrorType::MissingMapField(name),
                 ExprType::Number { ref val } => ErrorType::MissingListField(val.clone()),
                 _ => unreachable!(),
             },
@@ -97,7 +97,7 @@ impl Elang {
         let sel_val = sel.val.borrow();
 
         match (&*base_val, &*sel_val) {
-            (ExprType::Set { ref fields, .. }, ExprType::String { content }) => {
+            (ExprType::Map { ref fields, .. }, ExprType::String { content }) => {
                 if let Some(&val) = fields.get(content) {
                     return Ok(Some(val));
                 }
@@ -127,13 +127,13 @@ impl Elang {
                     }
                 }
                 let (et, ot) = match *base_val {
-                    ExprType::Set { .. } => (&[ExprKind::String], ExprKind::Set),
+                    ExprType::Map { .. } => (&[ExprKind::String], ExprKind::Map),
                     ExprType::List { .. } => (&[ExprKind::Number], ExprKind::List),
                     _ => {
                         return self.error(
                             base_,
                             ErrorType::UnexpectedExprType(
-                                &[ExprKind::Set, ExprKind::List],
+                                &[ExprKind::Map, ExprKind::List],
                                 base_val.kind(),
                             ),
                         )
@@ -152,10 +152,10 @@ impl Elang {
         let res = self.resolve_(expr)?;
         let val = res.val.borrow();
         match *val {
-            ExprType::Set { ref fields, .. } => Ok(fields.clone()),
+            ExprType::Map { ref fields, .. } => Ok(fields.clone()),
             _ => self.error(
                 expr,
-                ErrorType::UnexpectedExprType(&[ExprKind::Set], val.kind()),
+                ErrorType::UnexpectedExprType(&[ExprKind::Map], val.kind()),
             ),
         }
     }

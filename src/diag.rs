@@ -252,9 +252,9 @@ impl Diagnostic {
                 let _ = write!(s, ", got `{}`", actual.as_str());
                 s
             }
-            ErrorType::MissingSetField(name) => {
+            ErrorType::MissingMapField(name) => {
                 let s = e.get_interned(name);
-                format!("missing set field `{}`", &String::from_utf8_lossy(&s))
+                format!("missing map field `{}`", &String::from_utf8_lossy(&s))
             }
             ErrorType::MissingListField(ref n) => format!("missing list field {}", n),
             ErrorType::InfiniteRecursion(_) => format!("infinite recursion"),
@@ -323,7 +323,7 @@ impl Diagnostic {
                 ErrorContext::ParseField(start) => (s(start), p("field")),
                 ErrorContext::ParseCond(start) => (s(start), p("cond")),
                 ErrorContext::ParseList(start) => (s(start), p("list")),
-                ErrorContext::ParseSet(start) => (s(start), p("set")),
+                ErrorContext::ParseMap(start) => (s(start), p("map")),
                 ErrorContext::ParseInherit(start) => (s(start), p("inherit")),
                 ErrorContext::EvalResolved(eid) => (e(eid), format!("while evaluating")),
                 ErrorContext::EvalArithmetic(eid) => (e(eid), q("arithmetic expression")),

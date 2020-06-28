@@ -270,7 +270,7 @@ impl Elang {
                     elements: Rc::from(nels.into_boxed_slice()),
                 }
             }
-            ExprType::Set {
+            ExprType::Map {
                 ref fields,
                 recursive,
             } => {
@@ -278,7 +278,7 @@ impl Elang {
                 for (&id, &val) in fields.iter() {
                     nfields.insert(id, copy!(val));
                 }
-                ExprType::Set {
+                ExprType::Map {
                     fields: Rc::new(nfields),
                     recursive,
                 }
@@ -415,7 +415,7 @@ impl Elang {
                 }
                 Value::List(l.into_boxed_slice())
             }
-            ExprType::Set { ref fields, .. } => {
+            ExprType::Map { ref fields, .. } => {
                 let f = fields.clone();
                 drop(expr);
                 let mut r = HashMap::new();
@@ -424,7 +424,7 @@ impl Elang {
                     let val = self.get_value(*e.1)?;
                     r.insert(s, val);
                 }
-                Value::Set(r)
+                Value::Map(r)
             }
             _ => {
                 return self.error(
@@ -436,7 +436,7 @@ impl Elang {
                             ExprKind::Null,
                             ExprKind::String,
                             ExprKind::List,
-                            ExprKind::Set,
+                            ExprKind::Map,
                         ],
                         expr.kind(),
                     ),

@@ -17,8 +17,8 @@ pub enum Value {
     Null,
     /// A number
     Number(BigRational),
-    /// A set
-    Set(HashMap<Box<[u8]>, Value>),
+    /// A map
+    Map(HashMap<Box<[u8]>, Value>),
     /// A string
     String(Box<[u8]>),
 }
@@ -30,7 +30,7 @@ impl Debug for Value {
             Value::List(ref l) => f.debug_list().entries(l.iter()).finish(),
             Value::Null => f.write_str("null"),
             Value::Number(ref n) => write!(f, "{}", n),
-            Value::Set(ref el) => f
+            Value::Map(ref el) => f
                 .debug_map()
                 .entries(el.iter().map(|(k, v)| (Utf8Lossy::from_bytes(k), v)))
                 .finish(),

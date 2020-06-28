@@ -126,7 +126,7 @@ impl Test {
                 }
             }
             (
-                ExprType::Set {
+                ExprType::Map {
                     fields: ref s1,
                     recursive: false,
                 },
@@ -136,7 +136,7 @@ impl Test {
                     self.error(
                         actual,
                         format!(
-                            "expected set with {} elements, got set with {} elements",
+                            "expected map with {} elements, got map with {} elements",
                             s2.len(),
                             s1.len()
                         ),

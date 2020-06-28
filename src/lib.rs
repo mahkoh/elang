@@ -90,7 +90,7 @@ impl Elang {
     /// * `Value::List`
     /// * `Value::Fn`
     /// * `Value::String`
-    /// * `Value::Set` (non recursive)
+    /// * `Value::Map` (non recursive)
     /// * `Value::Inherit`
     /// * `Value::Resolved` (where the value of the destination is one of these)
     ///

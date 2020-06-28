@@ -143,7 +143,7 @@ pub enum ExprType {
         alt: Option<ExprId>,
     },
     /// `rec { fields }`
-    Set {
+    Map {
         fields: Rc<HashMap<Spanned<StrId>, ExprId>>,
         recursive: bool,
     },
@@ -219,7 +219,7 @@ pub enum ExprKind {
     /// `base.path or alt`
     Select,
     /// `rec { fields }`
-    Set,
+    Map,
     /// A string
     String,
     /// `"\{val}"`
@@ -237,7 +237,7 @@ impl ExprKind {
             ExprKind::String => "string",
             ExprKind::Number => "number",
             ExprKind::Ident => "ident",
-            ExprKind::Set => "set",
+            ExprKind::Map => "map",
             ExprKind::And => "and",
             ExprKind::Or => "or",
             ExprKind::Not => "not",
@@ -303,7 +303,7 @@ impl ExprType {
             ExprType::Path { .. } => ExprKind::Path,
             ExprType::Resolved { .. } => ExprKind::Resolved,
             ExprType::Select { .. } => ExprKind::Select,
-            ExprType::Set { .. } => ExprKind::Set,
+            ExprType::Map { .. } => ExprKind::Map,
             ExprType::Stringify { .. } => ExprKind::Stringify,
             ExprType::String { .. } => ExprKind::String,
             ExprType::Sub { .. } => ExprKind::Sub,

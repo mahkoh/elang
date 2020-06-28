@@ -46,7 +46,7 @@ impl Elang {
             | ExprType::List { .. }
             | ExprType::Fn { .. }
             | ExprType::String { .. }
-            | ExprType::Set {
+            | ExprType::Map {
                 recursive: false, ..
             }
             | ExprType::Inherit => {
@@ -93,7 +93,7 @@ impl Elang {
                 self.force_apl(&expr)
             }
             ExprType::Let { .. }
-            | ExprType::Set {
+            | ExprType::Map {
                 recursive: true, ..
             } => {
                 drop(borrow);
@@ -185,11 +185,10 @@ impl Elang {
             ExprType::And { lhs, rhs } => bol(self, lhs)? && bol(self, rhs)?,
             ExprType::Or { lhs, rhs } => bol(self, lhs)? || bol(self, rhs)?,
             ExprType::Not { val } => !bol(self, val)?,
-            ExprType::Test { base, path } => {
-                let mut set = base;
+            ExprType::Test { mut base, path } => {
                 let mut path = &self.get_path(path).ctx(ctx)?[..];
                 while !path.is_empty() {
-                    set = match self.get_opt_field_(set, path[0]).ctx(ctx)? {
+                    base = match self.get_opt_field_(base, path[0]).ctx(ctx)? {
                         Some(f) => f,
                         None => break,
                     };
@@ -221,7 +220,7 @@ impl Elang {
 
             new.shrink_to_fit();
 
-            ExprType::Set {
+            ExprType::Map {
                 fields: Rc::new(new),
                 recursive: false,
             }
@@ -342,10 +341,10 @@ impl Elang {
             }
         }
 
-        // Recursive sets
+        // Recursive maps
         {
             let mut new_val = None;
-            if let ExprType::Set {
+            if let ExprType::Map {
                 ref fields,
                 recursive: true,
             } = *val
@@ -379,13 +378,13 @@ impl Elang {
                     scope.pop(id);
                 }
                 if !in_fn_body {
-                    new_val = Some(ExprType::Set {
+                    new_val = Some(ExprType::Map {
                         fields: fields.clone(),
                         recursive: false,
                     });
                 }
             }
-            if let ExprType::Set {
+            if let ExprType::Map {
                 recursive: true, ..
             } = *val
             {
@@ -446,7 +445,7 @@ impl Elang {
         match *val {
             ExprType::Ident { .. }
             | ExprType::Let { .. }
-            | ExprType::Set {
+            | ExprType::Map {
                 recursive: true, ..
             }
             | ExprType::Fn {
@@ -508,7 +507,7 @@ impl Elang {
                 bind!(then);
                 bind!(el);
             }
-            ExprType::Set {
+            ExprType::Map {
                 ref fields,
                 recursive: false,
             } => {
@@ -711,7 +710,7 @@ impl Elang {
     /// is stored. If the path does not exist and no alternative has been provided, an
     /// error is printed and an error is returned.
     ///
-    /// Note that all expressions which are selected on have to be sets or an error is
+    /// Note that all expressions which are selected on have to be maps or an error is
     /// printed, even if an alternative is provided.
     ///
     /// ----
@@ -752,7 +751,7 @@ impl Elang {
                     let bad_path = bad_path.val.borrow();
                     let et = match *bad_path {
                         ExprType::String { content } => {
-                            ErrorType::MissingSetField(content)
+                            ErrorType::MissingMapField(content)
                         }
                         ExprType::Number { ref val } => {
                             ErrorType::MissingListField(val.clone())

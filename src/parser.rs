@@ -201,7 +201,7 @@ impl<'a> Parser<'a> {
     /// * Ident
     /// * Bool
     /// * Null
-    /// * (recursive) Set
+    /// * (recursive) Map
     /// * List
     /// * Let binding
     /// * Conditional
@@ -262,11 +262,11 @@ impl<'a> Parser<'a> {
             | Token::False
             | Token::Null => self.parse_simple(),
             Token::StringStart => self.parse_string(),
-            Token::Rec => self.parse_set(),
+            Token::Rec => self.parse_map(),
             Token::Let => self.parse_let(),
             Token::If => self.parse_conditional(),
             Token::LeftBracket => self.parse_list(),
-            Token::LeftBrace => self.parse_set(),
+            Token::LeftBrace => self.parse_map(),
             Token::LeftParen => {
                 let opening = self.tokens.next().unreachable();
                 let expr = self.parse_expr()?;
@@ -772,13 +772,13 @@ impl<'a> Parser<'a> {
         ))
     }
 
-    /// Parses a set.
+    /// Parses a map
     ///
     /// = Remarks
     ///
     /// When this function is invoked, the next token in the lexer should be `rec` or `{`.
     ///
-    /// A set has the following form:
+    /// A map has the following form:
     ///
     /// ----
     /// rec # optional
@@ -789,9 +789,9 @@ impl<'a> Parser<'a> {
     /// ----
     ///
     /// The last comma is optional.
-    fn parse_set(&mut self) -> Result<SExpr> {
+    fn parse_map(&mut self) -> Result<SExpr> {
         let opening = self.tokens.next().unwrap();
-        let ctx = ErrorContext::ParseSet(opening.span.lo);
+        let ctx = ErrorContext::ParseMap(opening.span.lo);
         let rec = match opening.val {
             Token::Rec => {
                 self.tokens.next_left_brace().ctx(ctx)?;
@@ -910,7 +910,7 @@ impl<'a> Parser<'a> {
         fields.shrink_to_fit();
         Ok(self.spanned(
             span,
-            ExprType::Set {
+            ExprType::Map {
                 fields: Rc::new(fields),
                 recursive: rec,
             },
