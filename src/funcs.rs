@@ -144,7 +144,7 @@ macro_rules! is {
             };
             Rc::new(f)
         }
-    }
+    };
 }
 
 is!(is_number, ExprType::Number { .. });

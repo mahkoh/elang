@@ -40,7 +40,6 @@ impl Elang {
 
         match *borrow {
             ExprType::Number { .. }
-            | ExprType::Ident { .. }
             | ExprType::Bool { .. }
             | ExprType::Null
             | ExprType::List { .. }
@@ -48,8 +47,7 @@ impl Elang {
             | ExprType::String { .. }
             | ExprType::Map {
                 recursive: false, ..
-            }
-            | ExprType::Inherit => {
+            } => {
                 // Nothing to do
                 Ok(())
             }
@@ -107,7 +105,7 @@ impl Elang {
                 drop(borrow);
                 self.force_stringify(&expr)
             }
-            ExprType::Path { .. } => {
+            ExprType::Ident { .. } | ExprType::Inherit | ExprType::Path { .. } => {
                 self.error2(expr.id, ErrorType::CannotForceExpr(borrow.kind()))
             }
         }

@@ -88,18 +88,16 @@ impl Elang {
     /// Evaluates the expression
     ///
     /// After this function returns successfully, `expr_id` has been modified such that
-    /// its value is one of the following:
+    /// its type is one of the following:
     ///
-    /// * `Value::Number`
-    /// * `Value::Ident`
-    /// * `Value::Bool`
-    /// * `Value::Null`
-    /// * `Value::List`
-    /// * `Value::Fn`
-    /// * `Value::String`
-    /// * `Value::Map` (non recursive)
-    /// * `Value::Inherit`
-    /// * `Value::Resolved` (where the value of the destination is one of these)
+    /// * `Number`
+    /// * `Bool`
+    /// * `Null`
+    /// * `List`
+    /// * `Fn`
+    /// * `String`
+    /// * `Map` (non recursive)
+    /// * `Resolved` (where the value of the destination is one of these)
     ///
     /// After this function returns with an error, some subtrees of `expr_id` might have
     /// been modified as above.
