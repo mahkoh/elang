@@ -142,18 +142,13 @@ impl Elang {
                     res
                 }
             }
-            ExprType::Mod { numer, denom, int } => {
+            ExprType::Mod { numer, denom } => {
                 let numer = num(self, numer)?;
                 let denom_ = num(self, denom)?;
                 if *denom_ == BigRational::zero() {
                     return self.error(denom, ErrorType::DivideByZero).ctx(ctx);
                 }
-                let res = &*numer % &*denom_;
-                if int {
-                    res.trunc()
-                } else {
-                    res
-                }
+                &*numer % &*denom_
             }
             ExprType::Neg { val } => (*num(self, val)?).clone().neg(),
             _ => unreachable!(),
@@ -489,7 +484,6 @@ impl Elang {
             | ExprType::Mod {
                 numer: lhs,
                 denom: rhs,
-                int: _,
             }
             | ExprType::Gt { lhs, rhs }
             | ExprType::Lt { lhs, rhs }

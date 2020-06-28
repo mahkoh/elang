@@ -136,19 +136,6 @@ impl Elang {
                     numer,
                     denom
                 ),
-                ExprType::Mod {
-                    numer,
-                    denom,
-                    int: true,
-                } => bin!(
-                    |numer, denom| ExprType::Mod {
-                        numer,
-                        denom,
-                        int: true
-                    },
-                    numer,
-                    denom
-                ),
                 ExprType::Div {
                     numer,
                     denom,
@@ -165,12 +152,10 @@ impl Elang {
                 ExprType::Mod {
                     numer,
                     denom,
-                    int: false,
                 } => bin!(
                     |numer, denom| ExprType::Mod {
                         numer,
                         denom,
-                        int: false
                     },
                     numer,
                     denom

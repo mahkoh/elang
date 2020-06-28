@@ -113,20 +113,14 @@ impl Stack {
                 denom,
                 int: true,
             },
-            Op::Mod(true) => |numer, denom| ExprType::Mod {
-                numer,
-                denom,
-                int: true,
-            },
             Op::Div(false) => |numer, denom| ExprType::Div {
                 numer,
                 denom,
                 int: false,
             },
-            Op::Mod(false) => |numer, denom| ExprType::Mod {
+            Op::Mod => |numer, denom| ExprType::Mod {
                 numer,
                 denom,
-                int: false,
             },
             Op::Concat => |lhs, rhs| ExprType::Concat { lhs, rhs },
             Op::Apl => |func, arg| ExprType::Apl { func, arg },

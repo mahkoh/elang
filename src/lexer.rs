@@ -127,7 +127,6 @@ impl<'a, 'b> Lexer<'a, 'b> {
         }
     }
 
-    ///
     fn lex_one_(&mut self, (cur_pos, cur): (u32, u8)) -> Result {
         // Step 1: Strings
         if cur == b'"' {
@@ -264,7 +263,6 @@ impl<'a, 'b> Lexer<'a, 'b> {
         keyword!(b"else", Else);
         keyword!(b"or", Or);
         keyword!(b"int/", IntSlash);
-        keyword!(b"int%", IntPercent);
 
         if let Some((t, skip)) = tkn {
             self.chars.skip(skip);

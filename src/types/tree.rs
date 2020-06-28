@@ -115,7 +115,6 @@ pub enum ExprType {
     Mod {
         numer: ExprId,
         denom: ExprId,
-        int: bool,
     },
     /// `lhs * rhs`
     Mul { lhs: ExprId, rhs: ExprId },

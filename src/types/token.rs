@@ -32,7 +32,6 @@ pub enum Token {
     If,
     In,
     Inherit,
-    IntPercent,
     IntSlash,
     LeftAngle,
     LeftAngleEquals,
@@ -60,56 +59,115 @@ pub enum Token {
     True,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+/// The type of a token
+///
+/// Identifiers, strings, and numbers carry associated data. The variants of this enum do
+/// not carry that data.
+///
+/// This type is used for diagnostic purposes only.
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub enum TokenType {
+    /// `&&`
     AmpersandAmpersand,
+    /// `@`
     At,
+    /// `\\`
     BackslashBackslash,
+    /// `||`
     BarBar,
+    /// `:`
     Colon,
+    /// `,`
     Comma,
+    /// `.`
     Dot,
+    /// `..`
     DotDot,
+    /// `else`
     Else,
+    /// `=`
     Equals,
+    /// `==`
     EqualsEquals,
+    /// `!`
     ExclamationMark,
+    /// `!=`
     ExclamationMarkEquals,
+    /// `false`
     False,
+    /// An identifier
     Ident,
+    /// `if`
     If,
+    /// `in`
     In,
+    /// `inherit`
     Inherit,
-    IntPercent,
+    /// `int/`
     IntSlash,
+    /// `<`
     LeftAngle,
+    /// `<=`
     LeftAngleEquals,
+    /// `{`
     LeftBrace,
+    /// `[`
     LeftBracket,
+    /// `(`
     LeftParen,
+    /// `let`
     Let,
+    /// `-`
     Minus,
+    /// `null`
     Null,
+    /// A number
     Number,
+    /// `or`
     Or,
+    /// `%`
     Percent,
+    /// `+`
     Plus,
+    /// `++`
     PlusPlus,
+    /// `?`
     QuestionMark,
+    /// `rec`
     Rec,
+    /// `>`
     RightAngle,
+    /// `>=`
     RightAngleEquals,
+    /// `}`
     RightBrace,
+    /// `]`
     RightBracket,
+    /// `)`
     RightParen,
+    /// `/`
     Slash,
+    /// `*`
     Star,
+    /// A string
     String,
+    /// `then`
     Then,
+    /// `true`
     True,
 }
 
 impl TokenType {
+    /// Returns the textual representation of the token type
+    ///
+    /// For symbol-like tokens and keywords, this is simply their representation in source
+    /// code. For example, `AmpersandAmpersand => "&&"`.
+    ///
+    /// There are three special cases:
+    ///
+    /// * `Ident => "identifier"`,
+    /// * `Number => "number"`,
+    /// * `String => "string"`,
     pub fn as_str(self) -> &'static str {
         match self {
             TokenType::AmpersandAmpersand => "&&",
@@ -130,7 +188,6 @@ impl TokenType {
             TokenType::If => "if",
             TokenType::Inherit => "inherit",
             TokenType::In => "in",
-            TokenType::IntPercent => "int%",
             TokenType::IntSlash => "int/",
             TokenType::LeftAngle => "<",
             TokenType::LeftAngleEquals => "<=",
@@ -162,9 +219,7 @@ impl TokenType {
 }
 
 impl Token {
-    /// Returns whether this token starts an expression.
-    ///
-    /// = Remarks
+    /// Returns whether this token starts an expression
     ///
     /// We use this to find out if an expression has just ended. If a token does not start
     /// an expression, then it combines a subsequent token with the current expression.
@@ -180,7 +235,7 @@ impl Token {
     /// f x + 1
     /// ```
     ///
-    /// the `x` (an identifier) starts a new expressiond and this will be parsed as a
+    /// the `x` (an identifier) starts a new expression and this will be parsed as a
     /// function application: `f(x + 1)`.
     pub fn starts_expr(self) -> bool {
         match self {
@@ -233,7 +288,6 @@ impl Token {
             Token::AmpersandAmpersand => false,
             Token::BarBar => false,
             Token::IntSlash => false,
-            Token::IntPercent => false,
         }
     }
 
@@ -257,7 +311,6 @@ impl Token {
             Token::If => TokenType::If,
             Token::Inherit => TokenType::Inherit,
             Token::In => TokenType::In,
-            Token::IntPercent => TokenType::IntPercent,
             Token::IntSlash => TokenType::IntSlash,
             Token::LeftAngleEquals => TokenType::LeftAngleEquals,
             Token::LeftAngle => TokenType::LeftAngle,
@@ -293,5 +346,11 @@ impl Token {
 impl Debug for Token {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.ty().as_str())
+    }
+}
+
+impl Debug for TokenType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.as_str())
     }
 }

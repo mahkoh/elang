@@ -126,11 +126,6 @@ fn print_tree_<W: Write>(
             denom,
             int: true,
         } => binary!("int/", numer, denom),
-        ExprType::Mod {
-            numer,
-            denom,
-            int: true,
-        } => binary!("int%", numer, denom),
         ExprType::Div {
             numer,
             denom,
@@ -139,7 +134,6 @@ fn print_tree_<W: Write>(
         ExprType::Mod {
             numer,
             denom,
-            int: false,
         } => binary!("%", numer, denom),
         ExprType::Gt { lhs, rhs } => binary!(">", lhs, rhs),
         ExprType::Lt { lhs, rhs } => binary!("<", lhs, rhs),
