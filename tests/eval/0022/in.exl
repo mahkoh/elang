@@ -14,7 +14,7 @@ let
     m = a <= a,
     n = a == a,
     o = a != a,
-    q = "\{a}" ++ "\{a}",
+    q = "\{a}" + "\{a}",
     r = (x: x + a) 1,
     s = if a == 1 then 2 else 3,
     t = {

@@ -122,7 +122,6 @@ impl Stack {
                 numer,
                 denom,
             },
-            Op::Concat => |lhs, rhs| ExprType::Concat { lhs, rhs },
             Op::Apl => |func, arg| ExprType::Apl { func, arg },
 
             // these are not handled via the stack but directly in the parser

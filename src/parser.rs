@@ -5,7 +5,7 @@ use crate::types::{
     span::{Span, Spanned},
     stack::Stack,
     store::{Store, StrId},
-    token::{Token, TokenType},
+    token::{Token, TokenKind},
     token_stream::TokenStream,
     tree::{ExprId, ExprType, FnParam, FnType, SExpr},
 };
@@ -40,7 +40,7 @@ impl<'a> Parser<'a> {
         if let Some(t) = self.tokens.try_next() {
             return self.error(
                 t.span,
-                ErrorType::UnexpectedToken(TokenAlternative::EndOfInput, t.ty()),
+                ErrorType::UnexpectedToken(TokenAlternative::EndOfInput, t.kind()),
             );
         }
         Ok(expr.val)
@@ -105,7 +105,6 @@ impl<'a> Parser<'a> {
                     Token::Slash => Op::Div(false),
                     Token::IntSlash => Op::Div(true),
                     Token::Percent => Op::Mod,
-                    Token::PlusPlus => Op::Concat,
                     Token::QuestionMark => Op::Test,
                     Token::Dot => Op::Select,
                     t if t.starts_expr() => Op::Apl,
@@ -214,7 +213,7 @@ impl<'a> Parser<'a> {
                 token.span,
                 ErrorType::UnexpectedToken(
                     TokenAlternative::StartOfExpression,
-                    token.ty(),
+                    token.kind(),
                 ),
             );
         }
@@ -306,7 +305,7 @@ impl<'a> Parser<'a> {
             expr = Some(match expr {
                 Some(expr) => self.spanned(
                     Span::new(expr.span.lo, rhs.span.hi),
-                    ExprType::Concat {
+                    ExprType::Add {
                         lhs: expr.val,
                         rhs: rhs.val,
                     },
@@ -347,11 +346,11 @@ impl<'a> Parser<'a> {
                     next.span,
                     ErrorType::UnexpectedToken(
                         TokenAlternative::List(&[
-                            TokenType::Number,
-                            TokenType::Ident,
-                            TokenType::LeftParen,
+                            TokenKind::Number,
+                            TokenKind::Ident,
+                            TokenKind::LeftParen,
                         ]),
-                        next.ty(),
+                        next.kind(),
                     ),
                 );
             }
@@ -528,10 +527,10 @@ impl<'a> Parser<'a> {
                             ident.span,
                             ErrorType::UnexpectedToken(
                                 TokenAlternative::List(&[
-                                    TokenType::Ident,
-                                    TokenType::DotDot,
+                                    TokenKind::Ident,
+                                    TokenKind::DotDot,
                                 ]),
-                                ident.ty(),
+                                ident.kind(),
                             ),
                         )
                         .ctx(ctx);
@@ -570,10 +569,10 @@ impl<'a> Parser<'a> {
                             next.span,
                             ErrorType::UnexpectedToken(
                                 TokenAlternative::List(&[
-                                    TokenType::Comma,
-                                    TokenType::RightBrace,
+                                    TokenKind::Comma,
+                                    TokenKind::RightBrace,
                                 ]),
-                                next.ty(),
+                                next.kind(),
                             ),
                         )
                         .ctx(ctx);
@@ -653,10 +652,10 @@ impl<'a> Parser<'a> {
                             next.span,
                             ErrorType::UnexpectedToken(
                                 TokenAlternative::List(&[
-                                    TokenType::In,
-                                    TokenType::Comma,
+                                    TokenKind::In,
+                                    TokenKind::Comma,
                                 ]),
-                                next.ty(),
+                                next.kind(),
                             ),
                         )
                         .ctx(ctx);
@@ -752,10 +751,10 @@ impl<'a> Parser<'a> {
                             next.span,
                             ErrorType::UnexpectedToken(
                                 TokenAlternative::List(&[
-                                    TokenType::Comma,
-                                    TokenType::RightBracket,
+                                    TokenKind::Comma,
+                                    TokenKind::RightBracket,
                                 ]),
-                                next.ty(),
+                                next.kind(),
                             ),
                         )
                         .ctx(ctx);
@@ -854,11 +853,11 @@ impl<'a> Parser<'a> {
                                     el.span,
                                     ErrorType::UnexpectedToken(
                                         TokenAlternative::List(&[
-                                            TokenType::Ident,
-                                            TokenType::Comma,
-                                            TokenType::RightBrace,
+                                            TokenKind::Ident,
+                                            TokenKind::Comma,
+                                            TokenKind::RightBrace,
                                         ]),
-                                        el.ty(),
+                                        el.kind(),
                                     ),
                                 )
                                 .ctx(ErrorContext::ParseInherit(next.span.lo));
@@ -871,11 +870,11 @@ impl<'a> Parser<'a> {
                             next.span,
                             ErrorType::UnexpectedToken(
                                 TokenAlternative::List(&[
-                                    TokenType::Ident,
-                                    TokenType::Inherit,
-                                    TokenType::RightBrace,
+                                    TokenKind::Ident,
+                                    TokenKind::Inherit,
+                                    TokenKind::RightBrace,
                                 ]),
-                                next.ty(),
+                                next.kind(),
                             ),
                         )
                         .ctx(ctx);
@@ -892,10 +891,10 @@ impl<'a> Parser<'a> {
                             next.span,
                             ErrorType::UnexpectedToken(
                                 TokenAlternative::List(&[
-                                    TokenType::Comma,
-                                    TokenType::RightBrace,
+                                    TokenKind::Comma,
+                                    TokenKind::RightBrace,
                                 ]),
-                                next.ty(),
+                                next.kind(),
                             ),
                         )
                         .ctx(ctx);

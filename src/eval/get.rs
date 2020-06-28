@@ -38,7 +38,7 @@ impl Elang {
         }
     }
 
-    pub(crate) fn get_int_(&mut self, expr: ExprId) -> Result<Rc<BigRational>> {
+    pub(crate) fn get_number_(&mut self, expr: ExprId) -> Result<Rc<BigRational>> {
         let res = self.resolve_(expr)?;
         let val = res.val.borrow();
         match *val {

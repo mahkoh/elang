@@ -71,8 +71,6 @@ pub enum ExprType {
     Apl { func: ExprId, arg: ExprId },
     /// A boolean
     Bool { val: bool },
-    /// `lhs ++ rhs`
-    Concat { lhs: ExprId, rhs: ExprId },
     /// `if e1 then e2 else e3`
     Cond {
         /// `e1`
@@ -111,6 +109,11 @@ pub enum ExprType {
     List { elements: Rc<[ExprId]> },
     /// `lhs < rhs`
     Lt { lhs: ExprId, rhs: ExprId },
+    /// `rec { fields }`
+    Map {
+        fields: Rc<HashMap<Spanned<StrId>, ExprId>>,
+        recursive: bool,
+    },
     /// `numer % denom`
     Mod {
         numer: ExprId,
@@ -142,11 +145,6 @@ pub enum ExprType {
         path: ExprId,
         alt: Option<ExprId>,
     },
-    /// `rec { fields }`
-    Map {
-        fields: Rc<HashMap<Spanned<StrId>, ExprId>>,
-        recursive: bool,
-    },
     /// A string
     String { content: StrId },
     /// `"\{val}"`
@@ -168,8 +166,6 @@ pub enum ExprKind {
     Apl,
     /// A boolean
     Bool,
-    /// `lhs ++ rhs`
-    Concat,
     /// `if e1 then e2 else e3`
     Cond,
     /// `numer / denom`
@@ -194,6 +190,8 @@ pub enum ExprKind {
     List,
     /// `lhs < rhs`
     Lt,
+    /// `rec { fields }`
+    Map,
     /// `numer % denom`
     Mod,
     /// `lhs * rhs`
@@ -218,8 +216,6 @@ pub enum ExprKind {
     Resolved,
     /// `base.path or alt`
     Select,
-    /// `rec { fields }`
-    Map,
     /// A string
     String,
     /// `"\{val}"`
@@ -253,7 +249,6 @@ impl ExprKind {
             ExprKind::Eq => "eq",
             ExprKind::Ne => "ne",
             ExprKind::Overlay => "overlay",
-            ExprKind::Concat => "concat",
             ExprKind::Apl => "apl",
             ExprKind::Neg => "neg",
             ExprKind::Cond => "cond",
@@ -278,7 +273,6 @@ impl ExprType {
             ExprType::And { .. } => ExprKind::And,
             ExprType::Apl { .. } => ExprKind::Apl,
             ExprType::Bool { .. } => ExprKind::Bool,
-            ExprType::Concat { .. } => ExprKind::Concat,
             ExprType::Cond { .. } => ExprKind::Cond,
             ExprType::Div { .. } => ExprKind::Div,
             ExprType::Eq { .. } => ExprKind::Eq,

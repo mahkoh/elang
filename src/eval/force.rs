@@ -54,8 +54,11 @@ impl Elang {
                 Ok(())
             }
             ExprType::Resolved { dest, .. } => self.force(dest),
-            ExprType::Add { .. }
-            | ExprType::Sub { .. }
+            ExprType::Add { .. } => {
+                drop(borrow);
+                self.force_add(&expr)
+            }
+            ExprType::Sub { .. }
             | ExprType::Mul { .. }
             | ExprType::Div { .. }
             | ExprType::Mod { .. }
@@ -75,10 +78,6 @@ impl Elang {
             | ExprType::Ne { .. } => {
                 drop(borrow);
                 self.force_bool(&expr)
-            }
-            ExprType::Concat { .. } => {
-                drop(borrow);
-                self.force_concat(&expr)
             }
             ExprType::Overlay { .. } => {
                 drop(borrow);
@@ -117,7 +116,7 @@ impl Elang {
     fn force_int(&mut self, expr: &Expr) -> Result {
         let ctx = ErrorContext::EvalArithmetic(expr.id);
 
-        let num = |slf: &mut Self, v| match slf.get_int_(v) {
+        let num = |slf: &mut Self, v| match slf.get_number_(v) {
             Ok(v) => Ok(v),
             Err(mut e) => {
                 e.context.push(ctx);
@@ -126,7 +125,6 @@ impl Elang {
         };
 
         let new = match *expr.val.borrow() {
-            ExprType::Add { lhs, rhs } => &*num(self, lhs)? + &*num(self, rhs)?,
             ExprType::Sub { lhs, rhs } => &*num(self, lhs)? - &*num(self, rhs)?,
             ExprType::Mul { lhs, rhs } => &*num(self, lhs)? * &*num(self, rhs)?,
             ExprType::Div { numer, denom, int } => {
@@ -172,7 +170,7 @@ impl Elang {
                 }
             }
         }
-        let int = |slf: &mut Self, v| get(slf.get_int_(v), ctx);
+        let int = |slf: &mut Self, v| get(slf.get_number_(v), ctx);
         let bol = |slf: &mut Self, v| get(slf.get_bool_(v), ctx);
 
         let new = match *val {
@@ -233,21 +231,32 @@ impl Elang {
         Ok(())
     }
 
-    fn force_concat(&mut self, expr: &Expr) -> Result {
+    fn force_add(&mut self, expr: &Expr) -> Result {
         let mut val = expr.val.borrow_mut();
-        let ctx = ErrorContext::EvalConcat(expr.id);
+        let ctx = ErrorContext::EvalAdd(expr.id);
 
-        let new = if let ExprType::Concat { lhs, rhs } = *val {
+        let new = if let ExprType::Add { lhs, rhs } = *val {
             let left = self.resolve_(lhs)?;
-            let left = left.val.borrow();
-            match *left {
+            let leftb = left.val.borrow();
+            match *leftb {
+                ExprType::Number { val: ref left } => {
+                    let left = left.clone();
+                    drop(leftb);
+                    let ctx2 = ErrorContext::EvalOtherExprType(lhs, ExprKind::Number);
+                    let right = self.get_number_(rhs).ctx(ctx2).ctx(ctx)?;
+                    let new = &*left + &*right;
+                    ExprType::Number { val: Rc::new(new) }
+                }
                 ExprType::String { content: left } => {
+                    drop(leftb);
                     let ctx2 = ErrorContext::EvalOtherExprType(lhs, ExprKind::String);
                     let right = self.get_string_(rhs).ctx(ctx2).ctx(ctx)?;
                     let new = self.store.concat(left, right);
                     ExprType::String { content: new }
                 }
                 ExprType::List { elements: ref left } => {
+                    let left = left.clone();
+                    drop(leftb);
                     let ctx2 = ErrorContext::EvalOtherExprType(lhs, ExprKind::List);
                     let right = self.get_list_(rhs).ctx(ctx2).ctx(ctx)?;
                     if right.len() == 0 {
@@ -255,7 +264,7 @@ impl Elang {
                             elements: left.clone(),
                         }
                     } else {
-                        let mut left = (**left).to_vec();
+                        let mut left = (*left).to_vec();
                         left.reserve(right.len());
                         for &el in right.iter() {
                             left.push(el);
@@ -271,7 +280,7 @@ impl Elang {
                             lhs,
                             ErrorType::UnexpectedExprType(
                                 &[ExprKind::String, ExprKind::List],
-                                left.kind(),
+                                leftb.kind(),
                             ),
                         )
                         .ctx(ctx);
@@ -494,7 +503,6 @@ impl Elang {
                 lower: lhs,
                 upper: rhs,
             }
-            | ExprType::Concat { lhs, rhs }
             | ExprType::Apl {
                 func: lhs,
                 arg: rhs,

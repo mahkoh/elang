@@ -9,7 +9,7 @@ pub use crate::{
         result::Result,
         span::{Span, Spanned},
         store::StrId,
-        token::TokenType,
+        token::TokenKind,
         tree::{BuiltInFn, Expr, ExprId, ExprKind, ExprType, FnParam, FnType},
         value::Value,
     },
@@ -142,8 +142,8 @@ impl Elang {
         self.get_bool_(expr_id)
     }
 
-    pub fn get_int(&mut self, expr_id: ExprId) -> Result<Rc<BigRational>> {
-        self.get_int_(expr_id)
+    pub fn get_number(&mut self, expr_id: ExprId) -> Result<Rc<BigRational>> {
+        self.get_number_(expr_id)
     }
 
     pub fn get_list(&mut self, expr_id: ExprId) -> Result<Rc<[ExprId]>> {

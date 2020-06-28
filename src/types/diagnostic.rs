@@ -1,5 +1,5 @@
 use crate::{
-    types::{span::Span, store::StrId, token::TokenType, tree::ExprKind},
+    types::{span::Span, store::StrId, token::TokenKind, tree::ExprKind},
     ExprId, Spanned,
 };
 use num_rational::BigRational;
@@ -39,7 +39,7 @@ pub enum ErrorContext {
     EvalArithmetic(ExprId),
     EvalBool(ExprId),
     EvalOverlay(ExprId),
-    EvalConcat(ExprId),
+    EvalAdd(ExprId),
     EvalCond(ExprId),
     EvalStringify(ExprId),
     EvalApl(ExprId),
@@ -52,7 +52,7 @@ pub enum ErrorContext {
 #[non_exhaustive]
 pub enum ErrorType {
     UnexpectedEndOfInput,
-    UnexpectedToken(TokenAlternative, TokenType),
+    UnexpectedToken(TokenAlternative, TokenKind),
     OutOfBoundsLiteral,
     UnexpectedNumberSuffix(u8),
     EmptyNumberLiteral,
@@ -74,12 +74,20 @@ pub enum ErrorType {
     SpanOverflow,
     AssertionFailed,
     Custom(Rc<dyn std::error::Error + 'static>),
-    UnmatchedToken(TokenType),
+    UnmatchedToken(TokenKind),
 }
 
-#[derive(Copy, Clone, Debug)]
+/// An alternative to a token
+///
+/// This type is used for diagnostic purposes when, during parsing, an invalid token is
+/// encountered. The value of this type indicates which kinds of tokens were valid in the
+/// position.
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum TokenAlternative {
+    /// The end of the input
     EndOfInput,
+    /// The start of an expression
     StartOfExpression,
-    List(&'static [TokenType]),
+    /// A list of tokens
+    List(&'static [TokenKind]),
 }

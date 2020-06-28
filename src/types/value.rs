@@ -13,12 +13,12 @@ pub enum Value {
     Bool(bool),
     /// A list
     List(Box<[Value]>),
+    /// A map
+    Map(HashMap<Box<[u8]>, Value>),
     /// Null
     Null,
     /// A number
     Number(BigRational),
-    /// A map
-    Map(HashMap<Box<[u8]>, Value>),
     /// A string
     String(Box<[u8]>),
 }

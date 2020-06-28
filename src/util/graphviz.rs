@@ -142,7 +142,6 @@ fn print_tree_<W: Write>(
         ExprType::Eq { lhs, rhs } => binary!("==", lhs, rhs),
         ExprType::Ne { lhs, rhs } => binary!("!=", lhs, rhs),
         ExprType::Overlay { lower, upper } => binary!("\\\\", lower, upper),
-        ExprType::Concat { lhs, rhs } => binary!("++", lhs, rhs),
         ExprType::Apl { func, arg } => binary!("$", func, arg),
         ExprType::Neg { val } => unary!("-", val),
         ExprType::Cond { cond, then, el } => {

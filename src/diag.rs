@@ -329,7 +329,7 @@ impl Diagnostic {
                 ErrorContext::EvalArithmetic(eid) => (e(eid), q("arithmetic expression")),
                 ErrorContext::EvalBool(eid) => (e(eid), q("boolean expression")),
                 ErrorContext::EvalOverlay(eid) => (e(eid), q("overlay expression")),
-                ErrorContext::EvalConcat(eid) => (e(eid), q("concat expression")),
+                ErrorContext::EvalAdd(eid) => (e(eid), q("add expression")),
                 ErrorContext::EvalCond(eid) => (e(eid), q("conditional expression")),
                 ErrorContext::EvalStringify(eid) => (e(eid), q("stringify expression")),
                 ErrorContext::EvalApl(eid) => (e(eid), q("function application")),

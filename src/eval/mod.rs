@@ -183,9 +183,6 @@ impl Elang {
                     lower,
                     upper
                 ),
-                ExprType::Concat { lhs, rhs } => {
-                    bin!(|lhs, rhs| ExprType::Concat { lhs, rhs }, lhs, rhs)
-                }
                 ExprType::Apl { func, arg } => {
                     bin!(|func, arg| ExprType::Apl { func, arg }, func, arg)
                 }
@@ -242,7 +239,6 @@ impl Elang {
             | ExprType::Eq { .. }
             | ExprType::Ne { .. }
             | ExprType::Overlay { .. }
-            | ExprType::Concat { .. }
             | ExprType::Apl { .. }
             | ExprType::Test { .. }
             | ExprType::Cond { .. } => {

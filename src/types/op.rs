@@ -21,8 +21,6 @@ pub enum Op {
     Mod,
     /// Unary minus. The argument is the index of the `!` in the codemap.
     UnMin(u32),
-    /// `++`
-    Concat,
     /// `?`
     Test,
     /// `e1 e2`
@@ -61,7 +59,6 @@ impl Op {
             Op::Mod => 7,
 
             Op::UnMin(..) => 8,
-            Op::Concat => 9,
             Op::Test => 10,
             Op::Apl => 11,
             Op::Select => 12,
@@ -87,7 +84,6 @@ impl Op {
             Op::Div(..) => true,
             Op::Mod => true,
             Op::UnMin(..) => false,
-            Op::Concat => false,
             Op::Test => false,
             Op::Apl => true,
             Op::Select => false,

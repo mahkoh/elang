@@ -3,7 +3,7 @@ use crate::types::{
     result::Result,
     span::{Span, Spanned},
     store::StrId,
-    token::{SToken, Token, TokenType},
+    token::{SToken, Token, TokenKind},
 };
 
 macro_rules! next_t {
@@ -12,7 +12,7 @@ macro_rules! next_t {
             t @ Spanned { val: $pat, .. } => Ok(t),
             t => $slf.error(
                 t.span,
-                ErrorType::UnexpectedToken(TokenAlternative::List(&[$ty]), t.ty()),
+                ErrorType::UnexpectedToken(TokenAlternative::List(&[$ty]), t.kind()),
             ),
         }
     };
@@ -71,39 +71,39 @@ impl TokenStream {
             _ => self.error(
                 t.span,
                 ErrorType::UnexpectedToken(
-                    TokenAlternative::List(&[TokenType::Ident]),
-                    t.ty(),
+                    TokenAlternative::List(&[TokenKind::Ident]),
+                    t.kind(),
                 ),
             ),
         }
     }
 
     pub fn next_assign(&mut self) -> Result<SToken> {
-        next_t!(self, Token::Equals, TokenType::Equals)
+        next_t!(self, Token::Equals, TokenKind::Equals)
     }
 
     pub fn next_then(&mut self) -> Result<SToken> {
-        next_t!(self, Token::Then, TokenType::Then)
+        next_t!(self, Token::Then, TokenKind::Then)
     }
 
     pub fn next_else(&mut self) -> Result<SToken> {
-        next_t!(self, Token::Else, TokenType::Else)
+        next_t!(self, Token::Else, TokenKind::Else)
     }
 
     pub fn next_left_brace(&mut self) -> Result<SToken> {
-        next_t!(self, Token::LeftBrace, TokenType::LeftBrace)
+        next_t!(self, Token::LeftBrace, TokenKind::LeftBrace)
     }
 
     pub fn next_right_brace(&mut self) -> Result<SToken> {
-        next_t!(self, Token::RightBrace, TokenType::RightBrace)
+        next_t!(self, Token::RightBrace, TokenKind::RightBrace)
     }
 
     pub fn next_right_paren(&mut self) -> Result<SToken> {
-        next_t!(self, Token::RightParen, TokenType::RightParen)
+        next_t!(self, Token::RightParen, TokenKind::RightParen)
     }
 
     pub fn next_colon(&mut self) -> Result<SToken> {
-        next_t!(self, Token::Colon, TokenType::Colon)
+        next_t!(self, Token::Colon, TokenKind::Colon)
     }
 
     fn error<T>(&self, span: Span, error: ErrorType) -> Result<T> {

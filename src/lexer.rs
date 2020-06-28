@@ -3,7 +3,7 @@ use crate::types::{
     result::{Result, ResultUtil},
     span::{Span, Spanned},
     store::Store,
-    token::{SToken, Token, TokenType},
+    token::{SToken, Token, TokenKind},
     token_stream::TokenStream,
 };
 
@@ -88,7 +88,7 @@ impl<'a, 'b> Lexer<'a, 'b> {
             //
         }
         if let Some(t) = self.braces.pop() {
-            return self.error(t.span, ErrorType::UnmatchedToken(TokenType::LeftBrace));
+            return self.error(t.span, ErrorType::UnmatchedToken(TokenKind::LeftBrace));
         }
         Ok(())
     }
@@ -165,6 +165,8 @@ impl<'a, 'b> Lexer<'a, 'b> {
             b'?' => one!(QuestionMark),
             b'@' => one!(At),
             b'%' => one!(Percent),
+            b'+' => one!(Plus),
+            b'-' => one!(Minus),
             _ => {}
         }
 
@@ -179,7 +181,7 @@ impl<'a, 'b> Lexer<'a, 'b> {
                         Some(t) => t,
                         _ => {
                             return self
-                                .error(res.span, ErrorType::UnmatchedToken(t.ty()))
+                                .error(res.span, ErrorType::UnmatchedToken(t.kind()))
                         }
                     };
                     if *ty == BraceType::String {
@@ -212,9 +214,6 @@ impl<'a, 'b> Lexer<'a, 'b> {
             (b'<', _) => one!(LeftAngle),
             (b'>', Some(b'=')) => two!(RightAngleEquals),
             (b'>', _) => one!(RightAngle),
-            (b'+', Some(b'+')) => two!(PlusPlus),
-            (b'+', _) => one!(Plus),
-            (b'-', _) => one!(Minus),
             _ => {}
         }
 

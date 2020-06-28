@@ -45,7 +45,6 @@ pub enum Token {
     Or,
     Percent,
     Plus,
-    PlusPlus,
     QuestionMark,
     Rec,
     RightAngle,
@@ -59,14 +58,14 @@ pub enum Token {
     True,
 }
 
-/// The type of a token
+/// The kind of a token
 ///
 /// Identifiers, strings, and numbers carry associated data. The variants of this enum do
 /// not carry that data.
 ///
 /// This type is used for diagnostic purposes only.
 #[derive(Copy, Clone, Eq, PartialEq)]
-pub enum TokenType {
+pub enum TokenKind {
     /// `&&`
     AmpersandAmpersand,
     /// `@`
@@ -129,8 +128,6 @@ pub enum TokenType {
     Percent,
     /// `+`
     Plus,
-    /// `++`
-    PlusPlus,
     /// `?`
     QuestionMark,
     /// `rec`
@@ -157,8 +154,8 @@ pub enum TokenType {
     True,
 }
 
-impl TokenType {
-    /// Returns the textual representation of the token type
+impl TokenKind {
+    /// Returns the textual representation of the token kind
     ///
     /// For symbol-like tokens and keywords, this is simply their representation in source
     /// code. For example, `AmpersandAmpersand => "&&"`.
@@ -170,50 +167,49 @@ impl TokenType {
     /// * `String => "string"`,
     pub fn as_str(self) -> &'static str {
         match self {
-            TokenType::AmpersandAmpersand => "&&",
-            TokenType::At => "@",
-            TokenType::BackslashBackslash => r"\\",
-            TokenType::BarBar => "||",
-            TokenType::Colon => ":",
-            TokenType::Comma => ",",
-            TokenType::Dot => ".",
-            TokenType::DotDot => "..",
-            TokenType::Else => "else",
-            TokenType::Equals => "=",
-            TokenType::EqualsEquals => "==",
-            TokenType::ExclamationMark => "!",
-            TokenType::ExclamationMarkEquals => "!=",
-            TokenType::False => "false",
-            TokenType::Ident => "identifier",
-            TokenType::If => "if",
-            TokenType::Inherit => "inherit",
-            TokenType::In => "in",
-            TokenType::IntSlash => "int/",
-            TokenType::LeftAngle => "<",
-            TokenType::LeftAngleEquals => "<=",
-            TokenType::LeftBrace => "{",
-            TokenType::LeftBracket => "[",
-            TokenType::LeftParen => "(",
-            TokenType::Let => "let",
-            TokenType::Minus => "-",
-            TokenType::Null => "null",
-            TokenType::Number => "number",
-            TokenType::Or => "or",
-            TokenType::Percent => "%",
-            TokenType::Plus => "+",
-            TokenType::PlusPlus => "++",
-            TokenType::QuestionMark => "?",
-            TokenType::Rec => "rec",
-            TokenType::RightAngle => ">",
-            TokenType::RightAngleEquals => ">=",
-            TokenType::RightBrace => "}",
-            TokenType::RightBracket => "]",
-            TokenType::RightParen => ")",
-            TokenType::Slash => "/",
-            TokenType::Star => "*",
-            TokenType::String => "string",
-            TokenType::Then => "then",
-            TokenType::True => "true",
+            TokenKind::AmpersandAmpersand => "&&",
+            TokenKind::At => "@",
+            TokenKind::BackslashBackslash => r"\\",
+            TokenKind::BarBar => "||",
+            TokenKind::Colon => ":",
+            TokenKind::Comma => ",",
+            TokenKind::Dot => ".",
+            TokenKind::DotDot => "..",
+            TokenKind::Else => "else",
+            TokenKind::Equals => "=",
+            TokenKind::EqualsEquals => "==",
+            TokenKind::ExclamationMark => "!",
+            TokenKind::ExclamationMarkEquals => "!=",
+            TokenKind::False => "false",
+            TokenKind::Ident => "identifier",
+            TokenKind::If => "if",
+            TokenKind::Inherit => "inherit",
+            TokenKind::In => "in",
+            TokenKind::IntSlash => "int/",
+            TokenKind::LeftAngle => "<",
+            TokenKind::LeftAngleEquals => "<=",
+            TokenKind::LeftBrace => "{",
+            TokenKind::LeftBracket => "[",
+            TokenKind::LeftParen => "(",
+            TokenKind::Let => "let",
+            TokenKind::Minus => "-",
+            TokenKind::Null => "null",
+            TokenKind::Number => "number",
+            TokenKind::Or => "or",
+            TokenKind::Percent => "%",
+            TokenKind::Plus => "+",
+            TokenKind::QuestionMark => "?",
+            TokenKind::Rec => "rec",
+            TokenKind::RightAngle => ">",
+            TokenKind::RightAngleEquals => ">=",
+            TokenKind::RightBrace => "}",
+            TokenKind::RightBracket => "]",
+            TokenKind::RightParen => ")",
+            TokenKind::Slash => "/",
+            TokenKind::Star => "*",
+            TokenKind::String => "string",
+            TokenKind::Then => "then",
+            TokenKind::True => "true",
         }
     }
 }
@@ -279,7 +275,6 @@ impl Token {
             Token::LeftAngleEquals => false,
             Token::RightAngle => false,
             Token::RightAngleEquals => false,
-            Token::PlusPlus => false,
             Token::Plus => false,
             Token::Star => false,
             Token::Slash => false,
@@ -291,65 +286,64 @@ impl Token {
         }
     }
 
-    pub fn ty(self) -> TokenType {
+    pub fn kind(self) -> TokenKind {
         match self {
-            Token::AmpersandAmpersand => TokenType::AmpersandAmpersand,
-            Token::At => TokenType::At,
-            Token::BackslashBackslash => TokenType::BackslashBackslash,
-            Token::BarBar => TokenType::BarBar,
-            Token::Colon => TokenType::Colon,
-            Token::Comma => TokenType::Comma,
-            Token::DotDot => TokenType::DotDot,
-            Token::Dot => TokenType::Dot,
-            Token::Else => TokenType::Else,
-            Token::EqualsEquals => TokenType::EqualsEquals,
-            Token::Equals => TokenType::Equals,
-            Token::ExclamationMarkEquals => TokenType::ExclamationMarkEquals,
-            Token::ExclamationMark => TokenType::ExclamationMark,
-            Token::False => TokenType::False,
-            Token::Ident(..) => TokenType::Ident,
-            Token::If => TokenType::If,
-            Token::Inherit => TokenType::Inherit,
-            Token::In => TokenType::In,
-            Token::IntSlash => TokenType::IntSlash,
-            Token::LeftAngleEquals => TokenType::LeftAngleEquals,
-            Token::LeftAngle => TokenType::LeftAngle,
-            Token::LeftBrace => TokenType::LeftBrace,
-            Token::LeftBracket => TokenType::LeftBracket,
-            Token::LeftParen => TokenType::LeftParen,
-            Token::Let => TokenType::Let,
-            Token::Minus => TokenType::Minus,
-            Token::Null => TokenType::Null,
-            Token::Number(..) => TokenType::Number,
-            Token::Or => TokenType::Or,
-            Token::Percent => TokenType::Percent,
-            Token::PlusPlus => TokenType::PlusPlus,
-            Token::Plus => TokenType::Plus,
-            Token::QuestionMark => TokenType::QuestionMark,
-            Token::Rec => TokenType::Rec,
-            Token::RightAngleEquals => TokenType::RightAngleEquals,
-            Token::RightAngle => TokenType::RightAngle,
-            Token::RightBrace => TokenType::RightBrace,
-            Token::RightBracket => TokenType::RightBracket,
-            Token::RightParen => TokenType::RightParen,
-            Token::Slash => TokenType::Slash,
-            Token::Star => TokenType::Star,
-            Token::StringStart => TokenType::String,
-            Token::String(..) => TokenType::String,
-            Token::StringEnd => TokenType::String,
-            Token::Then => TokenType::Then,
-            Token::True => TokenType::True,
+            Token::AmpersandAmpersand => TokenKind::AmpersandAmpersand,
+            Token::At => TokenKind::At,
+            Token::BackslashBackslash => TokenKind::BackslashBackslash,
+            Token::BarBar => TokenKind::BarBar,
+            Token::Colon => TokenKind::Colon,
+            Token::Comma => TokenKind::Comma,
+            Token::DotDot => TokenKind::DotDot,
+            Token::Dot => TokenKind::Dot,
+            Token::Else => TokenKind::Else,
+            Token::EqualsEquals => TokenKind::EqualsEquals,
+            Token::Equals => TokenKind::Equals,
+            Token::ExclamationMarkEquals => TokenKind::ExclamationMarkEquals,
+            Token::ExclamationMark => TokenKind::ExclamationMark,
+            Token::False => TokenKind::False,
+            Token::Ident(..) => TokenKind::Ident,
+            Token::If => TokenKind::If,
+            Token::Inherit => TokenKind::Inherit,
+            Token::In => TokenKind::In,
+            Token::IntSlash => TokenKind::IntSlash,
+            Token::LeftAngleEquals => TokenKind::LeftAngleEquals,
+            Token::LeftAngle => TokenKind::LeftAngle,
+            Token::LeftBrace => TokenKind::LeftBrace,
+            Token::LeftBracket => TokenKind::LeftBracket,
+            Token::LeftParen => TokenKind::LeftParen,
+            Token::Let => TokenKind::Let,
+            Token::Minus => TokenKind::Minus,
+            Token::Null => TokenKind::Null,
+            Token::Number(..) => TokenKind::Number,
+            Token::Or => TokenKind::Or,
+            Token::Percent => TokenKind::Percent,
+            Token::Plus => TokenKind::Plus,
+            Token::QuestionMark => TokenKind::QuestionMark,
+            Token::Rec => TokenKind::Rec,
+            Token::RightAngleEquals => TokenKind::RightAngleEquals,
+            Token::RightAngle => TokenKind::RightAngle,
+            Token::RightBrace => TokenKind::RightBrace,
+            Token::RightBracket => TokenKind::RightBracket,
+            Token::RightParen => TokenKind::RightParen,
+            Token::Slash => TokenKind::Slash,
+            Token::Star => TokenKind::Star,
+            Token::StringStart => TokenKind::String,
+            Token::String(..) => TokenKind::String,
+            Token::StringEnd => TokenKind::String,
+            Token::Then => TokenKind::Then,
+            Token::True => TokenKind::True,
         }
     }
 }
 
 impl Debug for Token {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.ty().as_str())
+        write!(f, "{}", self.kind().as_str())
     }
 }
 
-impl Debug for TokenType {
+impl Debug for TokenKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.as_str())
     }
