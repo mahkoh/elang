@@ -19,9 +19,9 @@ impl Elang {
         let val = res.val.borrow();
         match *val {
             ExprType::Bool { val } => Ok(val),
-            _ => self.error(
+            _ => self.error2(
                 expr,
-                ErrorType::UnexpectedExprType(&[ExprKind::Bool], val.kind()),
+                ErrorType::UnexpectedExprKind(&[ExprKind::Bool], val.kind()),
             ),
         }
     }
@@ -31,9 +31,9 @@ impl Elang {
         let val = res.val.borrow();
         match *val {
             ExprType::String { content } => Ok(content),
-            _ => self.error(
+            _ => self.error2(
                 expr,
-                ErrorType::UnexpectedExprType(&[ExprKind::String], val.kind()),
+                ErrorType::UnexpectedExprKind(&[ExprKind::String], val.kind()),
             ),
         }
     }
@@ -43,9 +43,9 @@ impl Elang {
         let val = res.val.borrow();
         match *val {
             ExprType::Number { ref val } => Ok(val.clone()),
-            _ => self.error(
+            _ => self.error2(
                 expr,
-                ErrorType::UnexpectedExprType(&[ExprKind::Number], val.kind()),
+                ErrorType::UnexpectedExprKind(&[ExprKind::Number], val.kind()),
             ),
         }
     }
@@ -55,9 +55,9 @@ impl Elang {
         let val = res.val.borrow();
         match *val {
             ExprType::List { ref elements } => Ok(elements.clone()),
-            _ => self.error(
+            _ => self.error2(
                 expr,
-                ErrorType::UnexpectedExprType(&[ExprKind::List], val.kind()),
+                ErrorType::UnexpectedExprKind(&[ExprKind::List], val.kind()),
             ),
         }
     }
@@ -76,7 +76,7 @@ impl Elang {
         let sel = self.resolve_(selector).unwrap();
         let sel = sel.val.borrow();
 
-        self.error(
+        self.error2(
             expr,
             match *sel {
                 ExprType::Ident { name } => ErrorType::MissingMapField(name),
@@ -117,9 +117,9 @@ impl Elang {
                 match *sel_val {
                     ExprType::String { .. } | ExprType::Number { .. } => {}
                     _ => {
-                        return self.error(
+                        return self.error2(
                             sel_,
-                            ErrorType::UnexpectedExprType(
+                            ErrorType::UnexpectedExprKind(
                                 &[ExprKind::String, ExprKind::Number],
                                 sel_val.kind(),
                             ),
@@ -130,16 +130,16 @@ impl Elang {
                     ExprType::Map { .. } => (&[ExprKind::String], ExprKind::Map),
                     ExprType::List { .. } => (&[ExprKind::Number], ExprKind::List),
                     _ => {
-                        return self.error(
+                        return self.error2(
                             base_,
-                            ErrorType::UnexpectedExprType(
+                            ErrorType::UnexpectedExprKind(
                                 &[ExprKind::Map, ExprKind::List],
                                 base_val.kind(),
                             ),
                         )
                     }
                 };
-                self.error(sel_, ErrorType::UnexpectedExprType(et, sel_val.kind()))
+                self.error2(sel_, ErrorType::UnexpectedExprKind(et, sel_val.kind()))
                     .ctx(ErrorContext::EvalOtherExprType(base_, ot))
             }
         }
@@ -153,9 +153,9 @@ impl Elang {
         let val = res.val.borrow();
         match *val {
             ExprType::Map { ref fields, .. } => Ok(fields.clone()),
-            _ => self.error(
+            _ => self.error2(
                 expr,
-                ErrorType::UnexpectedExprType(&[ExprKind::Map], val.kind()),
+                ErrorType::UnexpectedExprKind(&[ExprKind::Map], val.kind()),
             ),
         }
     }
@@ -165,9 +165,9 @@ impl Elang {
         let val = res.val.borrow();
         match *val {
             ExprType::Fn { ref func } => Ok(func.clone()),
-            _ => self.error(
+            _ => self.error2(
                 expr,
-                ErrorType::UnexpectedExprType(&[ExprKind::Fn], val.kind()),
+                ErrorType::UnexpectedExprKind(&[ExprKind::Fn], val.kind()),
             ),
         }
     }
@@ -177,9 +177,9 @@ impl Elang {
         let val = e.val.borrow();
         match *val {
             ExprType::Path { ref path } => Ok(path.clone()),
-            _ => self.error(
+            _ => self.error2(
                 expr,
-                ErrorType::UnexpectedExprType(&[ExprKind::Path], val.kind()),
+                ErrorType::UnexpectedExprKind(&[ExprKind::Path], val.kind()),
             ),
         }
     }

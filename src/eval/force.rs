@@ -108,7 +108,7 @@ impl Elang {
                 self.force_stringify(&expr)
             }
             ExprType::Path { .. } => {
-                self.error(expr.id, ErrorType::CannotForceExpr(borrow.kind()))
+                self.error2(expr.id, ErrorType::CannotForceExpr(borrow.kind()))
             }
         }
     }
@@ -131,7 +131,7 @@ impl Elang {
                 let numer = num(self, numer)?;
                 let denom_ = num(self, denom)?;
                 if *denom_ == BigRational::zero() {
-                    return self.error(denom, ErrorType::DivideByZero).ctx(ctx);
+                    return self.error2(denom, ErrorType::DivideByZero).ctx(ctx);
                 }
                 let res = &*numer / &*denom_;
                 if int {
@@ -144,7 +144,7 @@ impl Elang {
                 let numer = num(self, numer)?;
                 let denom_ = num(self, denom)?;
                 if *denom_ == BigRational::zero() {
-                    return self.error(denom, ErrorType::DivideByZero).ctx(ctx);
+                    return self.error2(denom, ErrorType::DivideByZero).ctx(ctx);
                 }
                 &*numer % &*denom_
             }
@@ -276,9 +276,9 @@ impl Elang {
                 }
                 _ => {
                     return self
-                        .error(
+                        .error2(
                             lhs,
-                            ErrorType::UnexpectedExprType(
+                            ErrorType::UnexpectedExprKind(
                                 &[ExprKind::String, ExprKind::List],
                                 leftb.kind(),
                             ),
@@ -600,7 +600,7 @@ impl Elang {
             ExprType::Number { val: ref v } => {
                 if !v.is_integer() {
                     return self
-                        .error(expr.id, ErrorType::CannotStringifyNonInteger)
+                        .error2(expr.id, ErrorType::CannotStringifyNonInteger)
                         .ctx(ErrorContext::EvalStringify(expr.id));
                 }
                 let s = format!("{}", v);
@@ -611,9 +611,9 @@ impl Elang {
             _ => {
                 drop(val);
                 return self
-                    .error(
+                    .error2(
                         expr.id,
-                        ErrorType::UnexpectedExprType(
+                        ErrorType::UnexpectedExprKind(
                             &[ExprKind::String, ExprKind::Number],
                             dst.kind(),
                         ),
@@ -667,7 +667,7 @@ impl Elang {
                     for &id in arg_fields.keys() {
                         if fields.get(&id).is_none() {
                             return self
-                                .error(arg, ErrorType::ExtraArgument(*id, pat.span));
+                                .error2(arg, ErrorType::ExtraArgument(*id, pat.span));
                         }
                     }
                 }
@@ -677,7 +677,7 @@ impl Elang {
                     } else if let Some(alt) = alt {
                         scope.bind(*id, alt);
                     } else {
-                        return self.error(arg, ErrorType::MissingArgument(id));
+                        return self.error2(arg, ErrorType::MissingArgument(id));
                     }
                 }
                 if let Some(param_name) = param_name {
@@ -766,7 +766,7 @@ impl Elang {
                         }
                         _ => unreachable!(),
                     };
-                    let mut e = self.error_(base, et);
+                    let mut e = self.error(base, et);
                     e.span = err_span;
                     e.context.push(ctx);
                     return Err(e);

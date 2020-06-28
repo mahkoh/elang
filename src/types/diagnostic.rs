@@ -61,7 +61,7 @@ pub enum ErrorType {
     InvalidCodePoint(u32),
     UnknownEscapeSequence(u8),
     DuplicateIdentifier(Spanned<StrId>),
-    UnexpectedExprType(&'static [ExprKind], ExprKind),
+    UnexpectedExprKind(&'static [ExprKind], ExprKind),
     CannotStringifyNonInteger,
     MissingMapField(StrId),
     MissingListField(Rc<BigRational>),

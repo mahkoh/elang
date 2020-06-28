@@ -237,7 +237,7 @@ impl Diagnostic {
                 self.trace(e, msg);
                 return;
             }
-            ErrorType::UnexpectedExprType(expected, actual) => {
+            ErrorType::UnexpectedExprKind(expected, actual) => {
                 let mut s = format!("unexpected expression type. expected ");
                 let _ = match expected {
                     &[t] => write!(s, "`{}`", t.as_str()),

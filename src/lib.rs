@@ -15,7 +15,7 @@ pub use crate::{
     },
 };
 use num_rational::BigRational;
-use std::{collections::HashMap, convert::TryInto, rc::Rc};
+use std::{borrow::Cow, collections::HashMap, convert::TryInto, rc::Rc};
 
 mod diag;
 mod eval;
@@ -25,6 +25,7 @@ mod parser;
 mod types;
 mod util;
 
+/// The elang engine
 pub struct Elang {
     store: Store,
     force_trace: Vec<ExprId>,
@@ -44,11 +45,17 @@ impl Elang {
     ///
     /// `lo` is the base for all generated spans.
     ///
-    /// Returns an error if `src` does not end
-    /// in a `\n`. Returns an error if `lo + src.len() > u32::max_value() - 1`.
+    /// If `src` does not end in a `\n`, a `\n` is appended. This might influence the
+    /// generated spans. The default diagnostic util behaves the same way and can
+    /// therefore handle such spans.
+    ///
+    /// Returns an error if `lo + src.len() > u32::max_value() - 1`.
     pub fn parse(&mut self, lo: u32, src: &[u8]) -> Result<ExprId> {
+        let mut src = Cow::Borrowed(src);
         if src.last().copied() != Some(b'\n') {
-            return self.err(ErrorType::MissingNewline);
+            let mut copy = src.to_vec();
+            copy.push(b'\n');
+            src = Cow::Owned(copy);
         }
         let overflow = src
             .len()
@@ -66,7 +73,7 @@ impl Elang {
         if overflow {
             return self.err(ErrorType::SpanOverflow);
         }
-        let tokens = lexer::lex(lo, src, &mut self.store)?;
+        let tokens = lexer::lex(lo, &src, &mut self.store)?;
         parser::parse(&mut self.store, tokens)
     }
 

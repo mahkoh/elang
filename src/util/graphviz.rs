@@ -131,10 +131,7 @@ fn print_tree_<W: Write>(
             denom,
             int: false,
         } => binary!("/", numer, denom),
-        ExprType::Mod {
-            numer,
-            denom,
-        } => binary!("%", numer, denom),
+        ExprType::Mod { numer, denom } => binary!("%", numer, denom),
         ExprType::Gt { lhs, rhs } => binary!(">", lhs, rhs),
         ExprType::Lt { lhs, rhs } => binary!("<", lhs, rhs),
         ExprType::Ge { lhs, rhs } => binary!(">=", lhs, rhs),

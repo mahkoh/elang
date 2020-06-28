@@ -110,7 +110,7 @@ impl<'a, 'b> Lexer<'a, 'b> {
                         Some((_, b'\n')) | None => break,
                         _ => {}
                     }
-                }
+                },
                 _ => break,
             }
         }

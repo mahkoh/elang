@@ -6,7 +6,7 @@ use crate::{
         store::Store,
         tree::{BuiltInFn, Expr, ExprType, FnType},
     },
-    Elang, Error, ErrorType,
+    Elang, Error, ErrorType, ExprKind,
 };
 use std::rc::Rc;
 
@@ -70,9 +70,9 @@ pub fn contains() -> Rc<dyn BuiltInFn> {
 }
 
 pub fn filter() -> Rc<dyn BuiltInFn> {
-    let f = move |eval: &mut Elang, olist: Rc<Expr>| {
-        let list = eval.get_list(olist.id)?;
-        let f = move |eval: &mut Elang, cond: Rc<Expr>| {
+    let f = move |eval: &mut Elang, cond: Rc<Expr>| {
+        let f = move |eval: &mut Elang, olist: Rc<Expr>| {
+            let list = eval.get_list(olist.id)?;
             let mut nlist = Vec::with_capacity(list.len());
             for &el in list.iter() {
                 let span = Span::new(olist.span.lo, cond.span.hi);
@@ -95,3 +95,62 @@ pub fn filter() -> Rc<dyn BuiltInFn> {
     };
     Rc::new(f)
 }
+
+pub fn ty() -> Rc<dyn BuiltInFn> {
+    let f = move |eval: &mut Elang, e: Rc<Expr>| {
+        let val = eval.resolve(e.id)?;
+        let ty = match *val.val.borrow() {
+            ExprType::Number { .. } => "number",
+            ExprType::String { .. } => "string",
+            ExprType::Fn { .. } => "fn",
+            ExprType::Map { .. } => "map",
+            ExprType::List { .. } => "list",
+            ExprType::Bool { .. } => "bool",
+            ExprType::Null => "null",
+            ref o => {
+                return Err(eval.error(
+                    e.id,
+                    ErrorType::UnexpectedExprKind(
+                        &[
+                            ExprKind::Number,
+                            ExprKind::String,
+                            ExprKind::Fn,
+                            ExprKind::Map,
+                            ExprKind::List,
+                            ExprKind::Bool,
+                            ExprKind::Null,
+                        ],
+                        o.kind(),
+                    ),
+                ))
+            }
+        };
+        let s = eval.intern(ty.as_bytes().to_vec().into_boxed_slice().into());
+        Ok(ExprType::String { content: s })
+    };
+    Rc::new(f)
+}
+
+macro_rules! is {
+    ($name:ident, $pat:pat) => {
+        pub fn $name() -> Rc<dyn BuiltInFn> {
+            let f = move |eval: &mut Elang, e: Rc<Expr>| {
+                let val = eval.resolve(e.id)?;
+                let val = match *val.val.borrow() {
+                    $pat => true,
+                    _ => false,
+                };
+                Ok(ExprType::Bool { val })
+            };
+            Rc::new(f)
+        }
+    }
+}
+
+is!(is_number, ExprType::Number { .. });
+is!(is_string, ExprType::String { .. });
+is!(is_fn, ExprType::Fn { .. });
+is!(is_map, ExprType::Map { .. });
+is!(is_list, ExprType::List { .. });
+is!(is_bool, ExprType::Bool { .. });
+is!(is_null, ExprType::Null);

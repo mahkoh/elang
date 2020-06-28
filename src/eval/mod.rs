@@ -149,17 +149,9 @@ impl Elang {
                     numer,
                     denom
                 ),
-                ExprType::Mod {
-                    numer,
-                    denom,
-                } => bin!(
-                    |numer, denom| ExprType::Mod {
-                        numer,
-                        denom,
-                    },
-                    numer,
-                    denom
-                ),
+                ExprType::Mod { numer, denom } => {
+                    bin!(|numer, denom| ExprType::Mod { numer, denom }, numer, denom)
+                }
                 ExprType::Gt { lhs, rhs } => {
                     bin!(|lhs, rhs| ExprType::Gt { lhs, rhs }, lhs, rhs)
                 }
@@ -365,11 +357,11 @@ impl Elang {
         new!(rv)
     }
 
-    fn error<T>(&mut self, eid: ExprId, error: ErrorType) -> Result<T> {
-        Err(self.error_(eid, error))
+    fn error2<T>(&mut self, eid: ExprId, error: ErrorType) -> Result<T> {
+        Err(self.error(eid, error))
     }
 
-    fn error_(&mut self, mut eid: ExprId, error: ErrorType) -> Error {
+    pub fn error(&mut self, mut eid: ExprId, error: ErrorType) -> Error {
         let mut ctx = vec![];
         let mut span;
         loop {
@@ -423,9 +415,9 @@ impl Elang {
                 Value::Map(r)
             }
             _ => {
-                return self.error(
+                return self.error2(
                     eid,
-                    ErrorType::UnexpectedExprType(
+                    ErrorType::UnexpectedExprKind(
                         &[
                             ExprKind::Number,
                             ExprKind::Bool,

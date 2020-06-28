@@ -115,10 +115,7 @@ pub enum ExprType {
         recursive: bool,
     },
     /// `numer % denom`
-    Mod {
-        numer: ExprId,
-        denom: ExprId,
-    },
+    Mod { numer: ExprId, denom: ExprId },
     /// `lhs * rhs`
     Mul { lhs: ExprId, rhs: ExprId },
     /// `lhs != rhs`
