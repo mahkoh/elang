@@ -310,38 +310,38 @@ impl Diagnostic {
             let p = |s| format!("while parsing {} starting here", s);
             let q = |s| format!("while evaluating {}", s);
             let (span, txt) = match *ctx {
-                ErrorContext::ParseString(start) => (s(start), p("string")),
-                ErrorContext::ParseUnicodeEscape(start) => {
+                ErrorContext::ParseString { start } => (s(start), p("string")),
+                ErrorContext::ParseUnicodeEscape { start } => {
                     (s(start), p("unicode escape"))
                 }
-                ErrorContext::ParseTest(start) => (s(start), p("test")),
-                ErrorContext::ParseSelect(start) => (s(start), p("select")),
-                ErrorContext::ParseParenthesized(start) => {
+                ErrorContext::ParseTest { start } => (s(start), p("test")),
+                ErrorContext::ParseSelect { start } => (s(start), p("select")),
+                ErrorContext::ParseParenthesized { start } => {
                     (s(start), p("parenthesized expression"))
                 }
-                ErrorContext::ParseFnHeader(start) => (s(start), p("function header")),
-                ErrorContext::ParseFnPattern(start) => (s(start), p("function pattern")),
-                ErrorContext::ParseLet(start) => (s(start), p("let")),
-                ErrorContext::ParseField(start) => (s(start), p("field")),
-                ErrorContext::ParseCond(start) => (s(start), p("cond")),
-                ErrorContext::ParseList(start) => (s(start), p("list")),
-                ErrorContext::ParseMap(start) => (s(start), p("map")),
-                ErrorContext::ParseInherit(start) => (s(start), p("inherit")),
-                ErrorContext::EvalResolved(eid) => (e(eid), format!("while evaluating")),
-                ErrorContext::EvalArithmetic(eid) => (e(eid), q("arithmetic expression")),
-                ErrorContext::EvalBool(eid) => (e(eid), q("boolean expression")),
-                ErrorContext::EvalOverlay(eid) => (e(eid), q("overlay expression")),
-                ErrorContext::EvalAdd(eid) => (e(eid), q("add expression")),
-                ErrorContext::EvalCond(eid) => (e(eid), q("conditional expression")),
-                ErrorContext::EvalStringify(eid) => (e(eid), q("string interpolation")),
-                ErrorContext::EvalApl(eid) => (e(eid), q("function application")),
-                ErrorContext::EvalSelect(eid) => (e(eid), q("select expression")),
-                ErrorContext::EvalFnPat(span) => {
-                    (span, format!("while matching this function pattern"))
+                ErrorContext::ParseFnHeader { start } => (s(start), p("function header")),
+                ErrorContext::ParseFnPattern { start } => (s(start), p("function pattern")),
+                ErrorContext::ParseLet { start } => (s(start), p("let")),
+                ErrorContext::ParseField { start } => (s(start), p("field")),
+                ErrorContext::ParseCond { start } => (s(start), p("cond")),
+                ErrorContext::ParseList { start } => (s(start), p("list")),
+                ErrorContext::ParseMap { start } => (s(start), p("map")),
+                ErrorContext::ParseInherit { start } => (s(start), p("inherit")),
+                ErrorContext::EvalResolved { pointer } => (e(pointer), format!("while evaluating")),
+                ErrorContext::EvalArithmetic { arithmetic_expr } => (e(arithmetic_expr), q("arithmetic expression")),
+                ErrorContext::EvalBool { boolean_expr } => (e(boolean_expr), q("boolean expression")),
+                ErrorContext::EvalOverlay { overlay_expr } => (e(overlay_expr), q("overlay expression")),
+                ErrorContext::EvalAdd { add_expr } => (e(add_expr), q("add expression")),
+                ErrorContext::EvalCond { cond_expr } => (e(cond_expr), q("conditional expression")),
+                ErrorContext::EvalStringify { stringify_expr } => (e(stringify_expr), q("string interpolation")),
+                ErrorContext::EvalApl { apl_expr } => (e(apl_expr), q("function application")),
+                ErrorContext::EvalSelect { select_expr } => (e(select_expr), q("select expression")),
+                ErrorContext::EvalFnPat { fn_pat_span } => {
+                    (fn_pat_span, format!("while matching this function pattern"))
                 }
-                ErrorContext::EvalOtherExprType(eid, ty) => (
-                    e(eid),
-                    format!("because this expression is a `{}`", ty.as_str()),
+                ErrorContext::EvalOtherExprKind { other_expr, other_expr_kind } => (
+                    e(other_expr),
+                    format!("because this expression is a `{}`", other_expr_kind.as_str()),
                 ),
             };
             self.common(span, "note: ", &txt);

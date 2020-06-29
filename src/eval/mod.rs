@@ -366,7 +366,7 @@ impl Elang {
             let expr = expr.val.borrow();
             match *expr {
                 ExprType::Resolved { dest, .. } => {
-                    ctx.push(ErrorContext::EvalResolved(eid));
+                    ctx.push(ErrorContext::EvalResolved { pointer: eid });
                     eid = dest;
                 }
                 _ => break,

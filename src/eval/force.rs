@@ -19,8 +19,8 @@ impl Elang {
             let mut context = vec![];
             for ex in self.force_trace.iter().rev() {
                 match context.last() {
-                    Some(ErrorContext::EvalResolved(e)) if e == ex => {}
-                    _ => context.push(ErrorContext::EvalResolved(*ex)),
+                    Some(ErrorContext::EvalResolved { pointer }) if pointer == ex => {}
+                    _ => context.push(ErrorContext::EvalResolved { pointer: *ex }),
                 }
             }
             return Err(Error {
@@ -116,7 +116,7 @@ impl Elang {
     }
 
     fn force_int(&mut self, expr: &Expr) -> Result {
-        let ctx = ErrorContext::EvalArithmetic(expr.id);
+        let ctx = ErrorContext::EvalArithmetic { arithmetic_expr: expr.id };
 
         let num = |slf: &mut Self, v| match slf.get_number_(v) {
             Ok(v) => Ok(v),
@@ -161,7 +161,7 @@ impl Elang {
 
     fn force_bool(&mut self, expr: &Expr) -> Result {
         let mut val = expr.val.borrow_mut();
-        let ctx = ErrorContext::EvalBool(expr.id);
+        let ctx = ErrorContext::EvalBool { boolean_expr: expr.id };
 
         fn get<U>(u: Result<U>, ctx: ErrorContext) -> Result<U> {
             match u {
@@ -206,7 +206,7 @@ impl Elang {
 
     fn force_overlay(&mut self, expr: &Expr) -> Result {
         let mut val = expr.val.borrow_mut();
-        let ctx = ErrorContext::EvalOverlay(expr.id);
+        let ctx = ErrorContext::EvalOverlay { overlay_expr: expr.id };
 
         let new = if let ExprType::Overlay { lower, upper } = *val {
             let bottom = self.get_fields_(lower).ctx(ctx)?;
@@ -254,24 +254,25 @@ impl Elang {
 
     fn force_add(&mut self, expr: &Expr) -> Result {
         let mut val = expr.val.borrow_mut();
-        let ctx = ErrorContext::EvalAdd(expr.id);
+        let ctx = ErrorContext::EvalAdd { add_expr: expr.id };
 
         let new = if let ExprType::Add { lhs, rhs } = *val {
             let left = self.resolve_(lhs)?;
             self.force(rhs)?;
             let leftb = left.val.borrow();
+            let ctx2 = |k| ErrorContext::EvalOtherExprKind { other_expr: lhs, other_expr_kind: k };
             match *leftb {
                 ExprType::Number { val: ref left } => {
                     let left = left.clone();
                     drop(leftb);
-                    let ctx2 = ErrorContext::EvalOtherExprType(lhs, ExprKind::Number);
+                    let ctx2 = ctx2(ExprKind::Number);
                     let right = self.get_number_(rhs).ctx(ctx2).ctx(ctx)?;
                     let new = &*left + &*right;
                     ExprType::Number { val: Rc::new(new) }
                 }
                 ExprType::String { content: left } => {
                     drop(leftb);
-                    let ctx2 = ErrorContext::EvalOtherExprType(lhs, ExprKind::String);
+                    let ctx2 = ctx2(ExprKind::String);
                     let right = self.get_string_(rhs).ctx(ctx2).ctx(ctx)?;
                     let new = self.store.concat(left, right);
                     ExprType::String { content: new }
@@ -279,7 +280,7 @@ impl Elang {
                 ExprType::List { elements: ref left } => {
                     let left = left.clone();
                     drop(leftb);
-                    let ctx2 = ErrorContext::EvalOtherExprType(lhs, ExprKind::List);
+                    let ctx2 = ctx2(ExprKind::List);
                     let right = self.get_list_(rhs).ctx(ctx2).ctx(ctx)?;
                     if right.len() == 0 {
                         ExprType::List {
@@ -586,7 +587,7 @@ impl Elang {
 
     fn force_cond(&mut self, expr: &Expr) -> Result {
         let mut val = expr.val.borrow_mut();
-        let ctx = ErrorContext::EvalCond(expr.id);
+        let ctx = ErrorContext::EvalCond { cond_expr: expr.id };
 
         let dest = if let ExprType::Cond { cond, then, el } = *val {
             if self.get_bool_(cond).ctx(ctx)? {
@@ -624,7 +625,7 @@ impl Elang {
                 if !v.is_integer() {
                     return self
                         .eerror(expr.id, ErrorType::CannotStringifyNonInteger)
-                        .ctx(ErrorContext::EvalStringify(expr.id));
+                        .ctx(ErrorContext::EvalStringify { stringify_expr: expr.id });
                 }
                 let s = format!("{}", v);
                 let content =
@@ -641,7 +642,7 @@ impl Elang {
                             encountered: dst.kind(),
                         },
                     )
-                    .ctx(ErrorContext::EvalStringify(expr.id));
+                    .ctx(ErrorContext::EvalStringify { stringify_expr: expr.id });
             }
         }
         Ok(())
@@ -651,7 +652,7 @@ impl Elang {
         match self.force_apl_(apl) {
             Ok(()) => Ok(()),
             Err(mut e) => {
-                e.context.push(ErrorContext::EvalApl(apl.id));
+                e.context.push(ErrorContext::EvalApl { apl_expr: apl.id });
                 Err(e)
             }
         }
@@ -683,7 +684,7 @@ impl Elang {
                 param_name,
                 fields,
             } => {
-                let ctx = ErrorContext::EvalFnPat(pat.span);
+                let ctx = ErrorContext::EvalFnPat { fn_pat_span: pat.span };
                 let arg_fields = self.get_fields_(arg).ctx(ctx)?;
                 for (&id, &alt) in fields.iter() {
                     if let Some(&val) = arg_fields.get(&id) {
@@ -744,7 +745,7 @@ impl Elang {
     fn force_select(&mut self, expr: &Expr) -> Result {
         let res = {
             let val = expr.val.borrow();
-            let ctx = ErrorContext::EvalSelect(expr.id);
+            let ctx = ErrorContext::EvalSelect { select_expr: expr.id };
 
             let (mut base, path, alt) = match *val {
                 ExprType::Select { base, path, alt } => (base, path, alt),

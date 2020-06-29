@@ -131,7 +131,7 @@ impl<'a> Parser<'a> {
                     let expr = stack.pop_expr();
                     let path = self
                         .parse_attr_path()
-                        .ctx(ErrorContext::ParseTest(next.span.lo))?;
+                        .ctx(ErrorContext::ParseTest { start: next.span.lo })?;
                     let span = Span::new(expr.span.lo, path.span.hi);
                     let expr = self.spanned(
                         span,
@@ -158,7 +158,7 @@ impl<'a> Parser<'a> {
                     let expr = stack.pop_expr();
                     let path = self
                         .parse_attr_path()
-                        .ctx(ErrorContext::ParseSelect(next.span.lo))?;
+                        .ctx(ErrorContext::ParseSelect { start: next.span.lo })?;
                     let (hi, alt) = match self.tokens.try_peek(0) {
                         Some(Spanned { val: Token::Or, .. }) => {
                             self.tokens.skip(1);
@@ -273,9 +273,9 @@ impl<'a> Parser<'a> {
                 let closing = match self.tokens.next_right_paren() {
                     Ok(c) => c,
                     Err(e) => {
-                        return Err(e.add_context(ErrorContext::ParseParenthesized(
-                            token.span.lo,
-                        )));
+                        return Err(e.add_context(ErrorContext::ParseParenthesized {
+                            start: token.span.lo,
+                        }));
                     }
                 };
                 let expr_ = self.store.get_expr(expr.val).val.borrow().clone();
@@ -335,7 +335,7 @@ impl<'a> Parser<'a> {
             }
             Token::LeftParen => {
                 let expr = self.parse_expr()?;
-                let ctx = ErrorContext::ParseParenthesized(next.span.lo);
+                let ctx = ErrorContext::ParseParenthesized { start: next.span.lo };
                 span.hi = self.tokens.next_right_paren().ctx(ctx)?.span.hi;
                 ExprType::Resolved {
                     ident: None,
@@ -414,7 +414,7 @@ impl<'a> Parser<'a> {
     /// Where the body of the `{ }` is as above.
     fn parse_fn(&mut self) -> Result<SExpr> {
         let first = self.tokens.peek(0).unwrap();
-        let ctx = ErrorContext::ParseFnHeader(first.span.lo);
+        let ctx = ErrorContext::ParseFnHeader { start: first.span.lo };
 
         if let Token::Ident(param_name) = first.val {
             self.tokens.skip(1);
@@ -504,7 +504,7 @@ impl<'a> Parser<'a> {
         &mut self,
     ) -> Result<(Span, Rc<HashMap<Spanned<StrId>, Option<ExprId>>>)> {
         let opening = self.tokens.next().unwrap();
-        let ctx = ErrorContext::ParseFnPattern(opening.span.lo);
+        let ctx = ErrorContext::ParseFnPattern { start: opening.span.lo };
         let mut vars = HashMap::<_, _>::new();
 
         loop {
@@ -532,7 +532,7 @@ impl<'a> Parser<'a> {
             let next = self
                 .tokens
                 .peek(0)
-                .ctx(ErrorContext::ParseField(span.lo))
+                .ctx(ErrorContext::ParseField { start: span.lo })
                 .ctx(ctx)?;
             let alt = match next.val {
                 Token::QuestionMark => {
@@ -609,7 +609,7 @@ impl<'a> Parser<'a> {
     /// ----
     fn parse_let(&mut self) -> Result<SExpr> {
         let let_ = self.tokens.next().unwrap();
-        let ctx = ErrorContext::ParseLet(let_.span.lo);
+        let ctx = ErrorContext::ParseLet { start: let_.span.lo };
         let mut bindings = HashMap::<_, _>::new();
         loop {
             if self.tokens.peek(0).ctx(ctx)?.val == Token::In {
@@ -617,7 +617,7 @@ impl<'a> Parser<'a> {
                 break;
             }
             let (span, name) = self.tokens.next_ident().ctx(ctx)?;
-            let ictx = ErrorContext::ParseField(span.span.lo);
+            let ictx = ErrorContext::ParseField { start: span.span.lo };
             self.tokens.next_assign().ctx(ictx)?;
             let expr = self.parse_expr()?;
             let next = self.tokens.peek(0).ctx(ctx)?;
@@ -676,7 +676,7 @@ impl<'a> Parser<'a> {
     /// ----
     fn parse_conditional(&mut self) -> Result<SExpr> {
         let if_ = self.tokens.next().unwrap();
-        let ctx = ErrorContext::ParseCond(if_.span.lo);
+        let ctx = ErrorContext::ParseCond { start: if_.span.lo };
         let e1 = self.parse_expr()?;
         self.tokens.next_then().ctx(ctx)?;
         let e2 = self.parse_expr()?;
@@ -712,7 +712,7 @@ impl<'a> Parser<'a> {
     /// The last comma is optional.
     fn parse_list(&mut self) -> Result<SExpr> {
         let start = self.tokens.next().unwrap();
-        let ctx = ErrorContext::ParseList(start.span.lo);
+        let ctx = ErrorContext::ParseList { start: start.span.lo };
         let mut els = Vec::new();
         loop {
             if self.tokens.peek(0).ctx(ctx)?.val == Token::RightBracket {
@@ -768,7 +768,7 @@ impl<'a> Parser<'a> {
     /// The last comma is optional.
     fn parse_map(&mut self) -> Result<SExpr> {
         let opening = self.tokens.next().unwrap();
-        let ctx = ErrorContext::ParseMap(opening.span.lo);
+        let ctx = ErrorContext::ParseMap { start: opening.span.lo };
         let rec = match opening.val {
             Token::Rec => {
                 self.tokens.next_left_brace().ctx(ctx)?;
@@ -787,7 +787,7 @@ impl<'a> Parser<'a> {
                 Token::Ident(ident) => {
                     self.tokens
                         .next_assign()
-                        .ctx(ErrorContext::ParseField(next.span.lo))?;
+                        .ctx(ErrorContext::ParseField { start: next.span.lo })?;
                     let expr = self.parse_expr()?;
                     match fields.entry(next.span.span(ident)) {
                         Entry::Occupied(e) => {
@@ -805,7 +805,7 @@ impl<'a> Parser<'a> {
                     let el = self
                         .tokens
                         .peek(0)
-                        .ctx(ErrorContext::ParseInherit(next.span.lo))?;
+                        .ctx(ErrorContext::ParseInherit { start: next.span.lo })?;
                     match el.val {
                         Token::Comma | Token::RightBrace => break,
                         Token::Ident(ident) => {
@@ -838,7 +838,7 @@ impl<'a> Parser<'a> {
                                         encountered: el.kind(),
                                     },
                                 )
-                                .ctx(ErrorContext::ParseInherit(next.span.lo));
+                                .ctx(ErrorContext::ParseInherit { start: next.span.lo });
                         }
                     }
                 },

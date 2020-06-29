@@ -50,33 +50,108 @@ impl Error {
     }
 }
 
+/// The context in which an error occurred
 #[derive(Copy, Clone, Debug)]
 #[non_exhaustive]
 pub enum ErrorContext {
-    ParseString(u32),
-    ParseUnicodeEscape(u32),
-    ParseTest(u32),
-    ParseSelect(u32),
-    ParseParenthesized(u32),
-    ParseFnHeader(u32),
-    ParseFnPattern(u32),
-    ParseLet(u32),
-    ParseField(u32),
-    ParseCond(u32),
-    ParseList(u32),
-    ParseMap(u32),
-    ParseInherit(u32),
-    EvalResolved(ExprId),
-    EvalArithmetic(ExprId),
-    EvalBool(ExprId),
-    EvalOverlay(ExprId),
-    EvalAdd(ExprId),
-    EvalCond(ExprId),
-    EvalStringify(ExprId),
-    EvalApl(ExprId),
-    EvalSelect(ExprId),
-    EvalOtherExprType(ExprId, ExprKind),
-    EvalFnPat(Span),
+    /// The error occurred while parsing a string
+    ParseString {
+        start: u32,
+    },
+    /// The error occurred while parsing a unicode escape sequence
+    ParseUnicodeEscape {
+        start: u32,
+    },
+    /// The error occurred while parsing a test expression
+    ParseTest {
+        start: u32,
+    },
+    /// The error occurred while parsing a select expression
+    ParseSelect {
+        start: u32,
+    },
+    /// The error occurred while parsing a parenthesized expression
+    ParseParenthesized {
+        start: u32,
+    },
+    /// The error occurred while parsing a function header
+    ParseFnHeader {
+        start: u32,
+    },
+    /// The error occurred while parsing a function pattern
+    ParseFnPattern {
+        start: u32,
+    },
+    /// The error occurred while parsing a let expression
+    ParseLet {
+        start: u32,
+    },
+    /// The error occurred while parsing a map field
+    ParseField {
+        start: u32,
+    },
+    /// The error occurred while parsing a conditional expression
+    ParseCond {
+        start: u32,
+    },
+    /// The error occurred while parsing a list
+    ParseList {
+        start: u32,
+    },
+    /// The error occurred while parsing a map
+    ParseMap {
+        start: u32,
+    },
+    /// The error occurred while parsing an inherit map field
+    ParseInherit {
+        start: u32,
+    },
+    /// The error occurred while evaluating an expression that resolved to another
+    /// expression
+    EvalResolved {
+        pointer: ExprId,
+    },
+    /// The error occurred while evaluating an arithmetic expression
+    EvalArithmetic {
+        arithmetic_expr: ExprId,
+    },
+    /// The error occurred while evaluating a boolean expression
+    EvalBool {
+        boolean_expr: ExprId,
+    },
+    /// The error occurred while evaluating an overlay expression
+    EvalOverlay {
+        overlay_expr: ExprId,
+    },
+    /// The error occurred while evaluating an add expression
+    EvalAdd {
+        add_expr: ExprId,
+    },
+    /// The error occurred while evaluating a conditional expression
+    EvalCond {
+        cond_expr: ExprId,
+    },
+    /// The error occurred while evaluating a string interpolation
+    EvalStringify {
+        stringify_expr: ExprId,
+    },
+    /// The error occurred while evaluating a function application
+    EvalApl {
+        apl_expr: ExprId,
+    },
+    /// The error occurred while evaluating a select expression
+    EvalSelect {
+        select_expr: ExprId,
+    },
+    /// The error occurred because another expression evaluated to an incompatible type
+    EvalOtherExprKind {
+        other_expr: ExprId,
+        other_expr_kind: ExprKind,
+    },
+    /// The error occurred while trying to match a function pattern
+    EvalFnPat {
+        fn_pat_span: Span,
+    },
 }
 
 /// The type of an error

@@ -152,7 +152,10 @@ impl Elang {
                     }
                 };
                 self.eerror(sel_, ErrorType::UnexpectedExprKind { expected: et, encountered: sel_val.kind() })
-                    .ctx(ErrorContext::EvalOtherExprType(base_, ot))
+                    .ctx(ErrorContext::EvalOtherExprKind {
+                        other_expr: base_,
+                        other_expr_kind: ot,
+                    })
             }
         }
     }

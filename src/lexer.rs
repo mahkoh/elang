@@ -331,7 +331,7 @@ impl<'a, 'b> Lexer<'a, 'b> {
                 b'n' => res.push(b'\n'),
                 b't' => res.push(b'\t'),
                 b'u' => {
-                    let ctx = ErrorContext::ParseUnicodeEscape(esc_pos);
+                    let ctx = ErrorContext::ParseUnicodeEscape { start: esc_pos };
                     let chr = self.unicode_escape().ctx(ctx)?;
                     let mut bytes = [0; 4];
                     res.extend_from_slice(chr.encode_utf8(&mut bytes).as_bytes())
