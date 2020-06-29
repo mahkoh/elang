@@ -234,27 +234,31 @@ impl Elang {
         Ok(())
     }
 
+    fn create_std(&mut self) -> ExprId {
+        let mut map = HashMap::new();
+        map.insert(
+            Span::built_in().span(
+                self.store.add_str("x".as_bytes()),
+            ),
+            self.store.add_expr(
+                Span::built_in(),
+                ExprType::Number {
+                    val: Rc::new(BigRational::from_integer(BigInt::from(32))),
+                },
+            ),
+        );
+        let e = ExprType::Map {
+            fields: Rc::new(map),
+            recursive: false,
+        };
+        self.store.add_expr(Span::built_in(), e)
+    }
+
     fn force_std(&mut self, expr: &Expr) -> Result {
         let std = match self.std {
             Some(std) => std,
             _ => {
-                let mut map = HashMap::new();
-                map.insert(
-                    Span::built_in().span(
-                        self.store.add_str("x".as_bytes()),
-                    ),
-                    self.store.add_expr(
-                        Span::built_in(),
-                        ExprType::Number {
-                            val: Rc::new(BigRational::from_integer(BigInt::from(32))),
-                        },
-                    ),
-                );
-                let e = ExprType::Map {
-                    fields: Rc::new(map),
-                    recursive: false,
-                };
-                let std = self.store.add_expr(Span::built_in(), e);
+                let std = self.create_std();
                 self.std = Some(std);
                 std
             }
