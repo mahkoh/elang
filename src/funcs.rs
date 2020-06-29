@@ -125,7 +125,7 @@ pub fn ty() -> Rc<dyn BuiltInFn> {
                 ))
             }
         };
-        let s = eval.intern(ty.as_bytes().to_vec().into_boxed_slice().into());
+        let s = eval.intern(ty);
         Ok(ExprType::String { content: s })
     };
     Rc::new(f)

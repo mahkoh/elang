@@ -8,7 +8,7 @@ pub use crate::{
         diagnostic::{Error, ErrorContext, ErrorType, TokenAlternative},
         result::Result,
         span::{Span, Spanned},
-        store::StrId,
+        store::{StrId, Intern},
         token::TokenKind,
         tree::{BuiltInFn, Expr, ExprId, ExprKind, ExprType, FnParam, FnType},
         value::Value,
@@ -122,8 +122,8 @@ impl Elang {
         self.store.get_expr(expr_id)
     }
 
-    pub fn intern(&mut self, val: Rc<[u8]>) -> StrId {
-        self.store.add_string(val)
+    pub fn intern<T: Intern>(&mut self, val: T) -> StrId {
+        self.store.add_str(val)
     }
 
     pub fn get_interned(&self, i: StrId) -> Rc<[u8]> {
@@ -151,6 +151,18 @@ impl Elang {
 
     pub fn get_number(&mut self, expr_id: ExprId) -> Result<Rc<BigRational>> {
         self.get_number_(expr_id)
+    }
+
+    pub fn get_null(&mut self, expr_id: ExprId) -> Result {
+        let res = self.resolve_(expr_id)?;
+        let val = res.val.borrow();
+        match *val {
+            ExprType::Null => Ok(()),
+            _ => self.error2(
+                expr_id,
+                ErrorType::UnexpectedExprKind(&[ExprKind::Null], val.kind()),
+            ),
+        }
     }
 
     pub fn get_list(&mut self, expr_id: ExprId) -> Result<Rc<[ExprId]>> {

@@ -4,12 +4,17 @@ use crate::types::{
 };
 use std::{
     cell::RefCell,
-    collections::{hash_map::Entry, HashMap},
+    collections::{HashMap},
     convert::TryInto,
     fmt,
     fmt::{Debug, Formatter},
     rc::Rc,
 };
+
+pub trait Intern {
+    fn as_bytes(&self) -> &[u8];
+    fn into_bytes(self) -> Rc<[u8]>;
+}
 
 /// A string interned in an interned.
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
@@ -52,29 +57,14 @@ impl Store {
         self.exprs[expr.id as usize].clone()
     }
 
-    pub fn add_str(&mut self, val: &[u8]) -> StrId {
-        if let Some(&id) = self.str_to_id.get(val) {
+    pub fn add_str<T: Intern>(&mut self, val: T) -> StrId {
+        if let Some(&id) = self.str_to_id.get(val.as_bytes()) {
             return StrId(id as u32);
         }
-        let rc: Rc<[u8]> = val.to_vec().into_boxed_slice().into();
+        let rc: Rc<[u8]> = val.into_bytes();
         let pos = self.strs.len();
         self.strs.push(rc.clone());
         self.str_to_id.insert(rc, pos);
-        StrId(pos as u32)
-    }
-
-    pub fn add_string(&mut self, val: Rc<[u8]>) -> StrId {
-        let pos = {
-            match self.str_to_id.entry(val.clone()) {
-                Entry::Vacant(v) => {
-                    let pos = self.strs.len();
-                    self.strs.push(val);
-                    v.insert(pos);
-                    pos
-                }
-                Entry::Occupied(o) => *o.get(),
-            }
-        };
         StrId(pos as u32)
     }
 
@@ -89,6 +79,66 @@ impl Store {
         let mut l = tmp.to_vec();
         let r = self.get_str(right);
         l.extend_from_slice(&r);
-        self.add_string(l.into_boxed_slice().into())
+        self.add_str(l)
+    }
+}
+
+impl<'a> Intern for &'a [u8] {
+    fn as_bytes(&self) -> &[u8] {
+        *self
+    }
+
+    fn into_bytes(self) -> Rc<[u8]> {
+        self.to_vec().into_boxed_slice().into()
+    }
+}
+
+impl Intern for Vec<u8> {
+    fn as_bytes(&self) -> &[u8] {
+        self
+    }
+
+    fn into_bytes(self) -> Rc<[u8]> {
+        self.into_boxed_slice().into()
+    }
+}
+
+impl Intern for Rc<[u8]> {
+    fn as_bytes(&self) -> &[u8] {
+        self
+    }
+
+    fn into_bytes(self) -> Rc<[u8]> {
+        self
+    }
+}
+
+impl Intern for Box<[u8]> {
+    fn as_bytes(&self) -> &[u8] {
+        self
+    }
+
+    fn into_bytes(self) -> Rc<[u8]> {
+        self.into()
+    }
+}
+
+impl<'a> Intern for &'a str {
+    fn as_bytes(&self) -> &[u8] {
+        str::as_bytes(*self)
+    }
+
+    fn into_bytes(self) -> Rc<[u8]> {
+        self.as_bytes().to_vec().into_boxed_slice().into()
+    }
+}
+
+impl Intern for String {
+    fn as_bytes(&self) -> &[u8] {
+        str::as_bytes(self)
+    }
+
+    fn into_bytes(self) -> Rc<[u8]> {
+        self.into_bytes().into_boxed_slice().into()
     }
 }

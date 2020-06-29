@@ -336,7 +336,7 @@ impl<'a, 'b> Lexer<'a, 'b> {
                     res.extend_from_slice(chr.encode_utf8(&mut bytes).as_bytes())
                 }
                 b'{' => {
-                    let id = self.store.add_string(res.into_boxed_slice().into());
+                    let id = self.store.add_str(res);
                     let span = Span::new(start, self.pos());
                     let bspan = Span::new(span.hi - 1, span.hi);
                     self.res.push(span.span(Token::String(id)));
@@ -354,7 +354,7 @@ impl<'a, 'b> Lexer<'a, 'b> {
         }
         let span = Span::new(start, self.pos());
         let espan = Span::new(span.hi - 1, span.hi);
-        let id = self.store.add_string(res.into_boxed_slice().into());
+        let id = self.store.add_str(res);
         self.res.push(span.span(Token::String(id)));
         self.res.push(espan.span(Token::StringEnd));
         Ok(())
@@ -467,7 +467,7 @@ impl<'a, 'b> Lexer<'a, 'b> {
         if res.is_empty() {
             return self.error(span, ErrorType::EmptyNumberLiteral);
         }
-        let value = self.store.add_string(res.into_boxed_slice().into());
+        let value = self.store.add_str(res);
         self.res
             .push(span.span(Token::Number(value, base, post_dot_places)));
         Ok(())

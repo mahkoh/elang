@@ -8,10 +8,9 @@ use crate::{
     },
     Elang, Error,
 };
-use num_bigint::BigInt;
 use num_rational::BigRational;
 use num_traits::identities::Zero;
-use std::{collections::HashMap, ops::Neg, rc::Rc};
+use std::{ops::Neg, rc::Rc};
 
 impl Elang {
     pub(crate) fn force(&mut self, eid: ExprId) -> Result {
@@ -232,26 +231,6 @@ impl Elang {
         *val = new;
 
         Ok(())
-    }
-
-    fn create_std(&mut self) -> ExprId {
-        let mut map = HashMap::new();
-        map.insert(
-            Span::built_in().span(
-                self.store.add_str("x".as_bytes()),
-            ),
-            self.store.add_expr(
-                Span::built_in(),
-                ExprType::Number {
-                    val: Rc::new(BigRational::from_integer(BigInt::from(32))),
-                },
-            ),
-        );
-        let e = ExprType::Map {
-            fields: Rc::new(map),
-            recursive: false,
-        };
-        self.store.add_expr(Span::built_in(), e)
     }
 
     fn force_std(&mut self, expr: &Expr) -> Result {
@@ -648,7 +627,7 @@ impl Elang {
                 }
                 let s = format!("{}", v);
                 let content =
-                    self.store.add_string(s.into_bytes().into_boxed_slice().into());
+                    self.store.add_str(s);
                 *val = ExprType::String { content };
             }
             _ => {

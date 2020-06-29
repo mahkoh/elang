@@ -1,13 +1,10 @@
-use crate::{
-    types::{
-        diagnostic::{ErrorContext, ErrorType},
-        result::Result,
-        span::{Span, Spanned},
-        tree::{Expr, ExprId, ExprType, FnParam, FnType},
-        value::Value,
-    },
-    Elang, Error, ExprKind,
-};
+use crate::{types::{
+    diagnostic::{ErrorContext, ErrorType},
+    result::Result,
+    span::{Span, Spanned},
+    tree::{Expr, ExprId, ExprType, FnParam, FnType},
+    value::Value,
+}, Elang, Error, ExprKind, funcs};
 use std::{collections::HashMap, rc::Rc};
 
 mod force;
@@ -358,11 +355,11 @@ impl Elang {
         new!(rv)
     }
 
-    fn error2<T>(&mut self, eid: ExprId, error: ErrorType) -> Result<T> {
+    pub(crate) fn error2<T>(&mut self, eid: ExprId, error: ErrorType) -> Result<T> {
         Err(self.error(eid, error))
     }
 
-    pub fn error(&mut self, mut eid: ExprId, error: ErrorType) -> Error {
+    pub fn error(&self, mut eid: ExprId, error: ErrorType) -> Error {
         let mut ctx = vec![];
         let mut span;
         loop {
@@ -433,5 +430,47 @@ impl Elang {
             }
         };
         Ok(val)
+    }
+
+
+    fn create_std(&mut self) -> ExprId {
+        let mut map = HashMap::new();
+
+        macro_rules! add_fn {
+            ($func:ident) => {
+                add_fn!(stringify!($func), $func)
+            };
+            ($name:expr, $func:ident) => {
+                map.insert(
+                    Span::built_in().span(
+                        self.store.add_str($name.as_bytes()),
+                    ),
+                    self.store.add_expr(
+                        Span::built_in(),
+                        ExprType::Fn {
+                            func: FnType::BuiltIn { func: funcs::$func() },
+                        },
+                    ),
+                );
+            }
+        }
+
+        add_fn!(is_number);
+        add_fn!(is_string);
+        add_fn!(is_fn);
+        add_fn!(is_map);
+        add_fn!(is_list);
+        add_fn!(is_bool);
+        add_fn!(is_null);
+        add_fn!("type", ty);
+        add_fn!(filter);
+        add_fn!(contains);
+
+        let e = ExprType::Map {
+            fields: Rc::new(map),
+            recursive: false,
+        };
+
+        self.store.add_expr(Span::built_in(), e)
     }
 }

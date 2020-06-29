@@ -1,0 +1,19 @@
+let
+    s = std
+in
+    [
+        s.is_number 1,
+        s.is_number {},
+        s.is_string "a",
+        s.is_string {},
+        s.is_fn a: a,
+        s.is_fn {},
+        s.is_map {},
+        s.is_map "",
+        s.is_list [],
+        s.is_list "",
+        s.is_bool true,
+        s.is_bool "",
+        s.is_null null,
+        s.is_null "",
+    ]
