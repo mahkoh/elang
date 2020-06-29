@@ -52,7 +52,18 @@ impl Store {
         self.exprs[expr.id as usize].clone()
     }
 
-    pub fn add_str(&mut self, val: Rc<[u8]>) -> StrId {
+    pub fn add_str(&mut self, val: &[u8]) -> StrId {
+        if let Some(&id) = self.str_to_id.get(val) {
+            return StrId(id as u32);
+        }
+        let rc: Rc<[u8]> = val.to_vec().into_boxed_slice().into();
+        let pos = self.strs.len();
+        self.strs.push(rc.clone());
+        self.str_to_id.insert(rc, pos);
+        StrId(pos as u32)
+    }
+
+    pub fn add_string(&mut self, val: Rc<[u8]>) -> StrId {
         let pos = {
             match self.str_to_id.entry(val.clone()) {
                 Entry::Vacant(v) => {
@@ -78,6 +89,6 @@ impl Store {
         let mut l = tmp.to_vec();
         let r = self.get_str(right);
         l.extend_from_slice(&r);
-        self.add_str(l.into_boxed_slice().into())
+        self.add_string(l.into_boxed_slice().into())
     }
 }

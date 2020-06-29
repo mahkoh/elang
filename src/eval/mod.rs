@@ -233,6 +233,7 @@ impl Elang {
             | ExprType::Overlay { .. }
             | ExprType::Apl { .. }
             | ExprType::Test { .. }
+            | ExprType::Std
             | ExprType::Cond { .. } => {
                 // handled above
                 unreachable!();

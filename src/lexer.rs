@@ -262,6 +262,7 @@ impl<'a, 'b> Lexer<'a, 'b> {
         keyword!(b"else", Else);
         keyword!(b"or", Or);
         keyword!(b"int/", IntSlash);
+        keyword!(b"std", Std);
 
         if let Some((t, skip)) = tkn {
             self.chars.skip(skip);
@@ -290,8 +291,7 @@ impl<'a, 'b> Lexer<'a, 'b> {
                     break;
                 }
             }
-            let ident = self.chars.text()[..i].to_vec();
-            let ident = self.store.add_str(ident.into_boxed_slice().into());
+            let ident = self.store.add_str(&self.chars.text()[..i]);
             self.chars.skip(i);
             self.res.push(Spanned::new(
                 Span::new(self.lo + cur_pos, self.pos()),
@@ -336,7 +336,7 @@ impl<'a, 'b> Lexer<'a, 'b> {
                     res.extend_from_slice(chr.encode_utf8(&mut bytes).as_bytes())
                 }
                 b'{' => {
-                    let id = self.store.add_str(res.into_boxed_slice().into());
+                    let id = self.store.add_string(res.into_boxed_slice().into());
                     let span = Span::new(start, self.pos());
                     let bspan = Span::new(span.hi - 1, span.hi);
                     self.res.push(span.span(Token::String(id)));
@@ -354,7 +354,7 @@ impl<'a, 'b> Lexer<'a, 'b> {
         }
         let span = Span::new(start, self.pos());
         let espan = Span::new(span.hi - 1, span.hi);
-        let id = self.store.add_str(res.into_boxed_slice().into());
+        let id = self.store.add_string(res.into_boxed_slice().into());
         self.res.push(span.span(Token::String(id)));
         self.res.push(espan.span(Token::StringEnd));
         Ok(())
@@ -467,7 +467,7 @@ impl<'a, 'b> Lexer<'a, 'b> {
         if res.is_empty() {
             return self.error(span, ErrorType::EmptyNumberLiteral);
         }
-        let value = self.store.add_str(res.into_boxed_slice().into());
+        let value = self.store.add_string(res.into_boxed_slice().into());
         self.res
             .push(span.span(Token::Number(value, base, post_dot_places)));
         Ok(())

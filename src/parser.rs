@@ -259,6 +259,7 @@ impl<'a> Parser<'a> {
             | Token::Ident(..)
             | Token::True
             | Token::False
+            | Token::Std
             | Token::Null => self.parse_simple(),
             Token::StringStart => self.parse_string(),
             Token::Rec => self.parse_map(),
@@ -609,6 +610,7 @@ impl<'a> Parser<'a> {
             Token::True => ExprType::Bool { val: true },
             Token::False => ExprType::Bool { val: false },
             Token::Null => ExprType::Null,
+            Token::Std => ExprType::Std,
             _ => unreachable!(),
         };
         Ok(self.spanned(t.span, expr))

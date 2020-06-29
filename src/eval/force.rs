@@ -8,9 +8,10 @@ use crate::{
     },
     Elang, Error,
 };
+use num_bigint::BigInt;
 use num_rational::BigRational;
 use num_traits::identities::Zero;
-use std::{ops::Neg, rc::Rc};
+use std::{collections::HashMap, ops::Neg, rc::Rc};
 
 impl Elang {
     pub(crate) fn force(&mut self, eid: ExprId) -> Result {
@@ -50,6 +51,10 @@ impl Elang {
             } => {
                 // Nothing to do
                 Ok(())
+            }
+            ExprType::Std => {
+                drop(borrow);
+                self.force_std(&expr)
             }
             ExprType::Resolved { dest, .. } => self.force(dest),
             ExprType::Add { .. } => {
@@ -226,6 +231,41 @@ impl Elang {
 
         *val = new;
 
+        Ok(())
+    }
+
+    fn force_std(&mut self, expr: &Expr) -> Result {
+        let std = match self.std {
+            Some(std) => std,
+            _ => {
+                let mut map = HashMap::new();
+                map.insert(
+                    Span::built_in().span(
+                        self.store.add_str("x".as_bytes()),
+                    ),
+                    self.store.add_expr(
+                        Span::built_in(),
+                        ExprType::Number {
+                            val: Rc::new(BigRational::from_integer(BigInt::from(32))),
+                        },
+                    ),
+                );
+                let e = ExprType::Map {
+                    fields: Rc::new(map),
+                    recursive: false,
+                };
+                let std = self.store.add_expr(Span::built_in(), e);
+                self.std = Some(std);
+                std
+            }
+        };
+        *expr.val.borrow_mut() = ExprType::Resolved {
+            ident: Some(
+                self.store
+                    .add_str("std".as_bytes()),
+            ),
+            dest: std,
+        };
         Ok(())
     }
 
@@ -469,6 +509,7 @@ impl Elang {
                 func: FnType::BuiltIn { .. },
             }
             | ExprType::Bool { .. }
+            | ExprType::Std
             | ExprType::Inherit => {
                 // nothing to do
             }
@@ -603,7 +644,7 @@ impl Elang {
                 }
                 let s = format!("{}", v);
                 let content =
-                    self.store.add_str(s.into_bytes().into_boxed_slice().into());
+                    self.store.add_string(s.into_bytes().into_boxed_slice().into());
                 *val = ExprType::String { content };
             }
             _ => {

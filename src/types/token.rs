@@ -54,6 +54,7 @@ pub enum Token {
     RightParen,
     Slash,
     Star,
+    Std,
     Then,
     True,
 }
@@ -146,6 +147,8 @@ pub enum TokenKind {
     Slash,
     /// `*`
     Star,
+    /// `std`
+    Std,
     /// A string
     String,
     /// `then`
@@ -207,6 +210,7 @@ impl TokenKind {
             TokenKind::RightParen => ")",
             TokenKind::Slash => "/",
             TokenKind::Star => "*",
+            TokenKind::Std => "std",
             TokenKind::String => "string",
             TokenKind::Then => "then",
             TokenKind::True => "true",
@@ -247,6 +251,7 @@ impl Token {
             Token::LeftBracket => true,
             Token::LeftBrace => true,
             Token::LeftParen => true,
+            Token::Std => true,
 
             // Unary operators
             Token::Minus => true,
@@ -328,6 +333,7 @@ impl Token {
             Token::RightParen => TokenKind::RightParen,
             Token::Slash => TokenKind::Slash,
             Token::Star => TokenKind::Star,
+            Token::Std => TokenKind::Std,
             Token::StringStart => TokenKind::String,
             Token::String(..) => TokenKind::String,
             Token::StringEnd => TokenKind::String,

@@ -161,6 +161,7 @@ fn print_tree_<W: Write>(
         }
         ExprType::Bool { val } => write!(w, "{} [label=\"{}\"];", id, val),
         ExprType::Null => write!(w, "{} [label=\"null\"];", id),
+        ExprType::Std => write!(w, "{} [label=\"std\"];", id),
         ExprType::Path { ref path } => {
             let sid = *id;
             write!(w, "{} [shape=\"box\", label=\"path\"];", sid)?;

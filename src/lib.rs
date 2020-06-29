@@ -29,6 +29,7 @@ mod util;
 pub struct Elang {
     store: Store,
     force_trace: Vec<ExprId>,
+    std: Option<ExprId>,
 }
 
 /// Core methods
@@ -38,6 +39,7 @@ impl Elang {
         Self {
             store: Store::new(),
             force_trace: vec![],
+            std: None,
         }
     }
 
@@ -121,7 +123,7 @@ impl Elang {
     }
 
     pub fn intern(&mut self, val: Rc<[u8]>) -> StrId {
-        self.store.add_str(val)
+        self.store.add_string(val)
     }
 
     pub fn get_interned(&self, i: StrId) -> Rc<[u8]> {

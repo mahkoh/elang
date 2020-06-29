@@ -142,6 +142,8 @@ pub enum ExprType {
         path: ExprId,
         alt: Option<ExprId>,
     },
+    /// The standard library
+    Std,
     /// A string
     String { content: StrId },
     /// `"\{val}"`
@@ -213,6 +215,8 @@ pub enum ExprKind {
     Resolved,
     /// `base.path or alt`
     Select,
+    /// The standard library
+    Std,
     /// A string
     String,
     /// `"\{val}"`
@@ -259,6 +263,7 @@ impl ExprKind {
             ExprKind::Stringify => "stringify",
             ExprKind::Path => "path",
             ExprKind::Resolved => "resolved",
+            ExprKind::Std => "std",
         }
     }
 }
@@ -295,6 +300,7 @@ impl ExprType {
             ExprType::Resolved { .. } => ExprKind::Resolved,
             ExprType::Select { .. } => ExprKind::Select,
             ExprType::Map { .. } => ExprKind::Map,
+            ExprType::Std { .. } => ExprKind::Std,
             ExprType::Stringify { .. } => ExprKind::Stringify,
             ExprType::String { .. } => ExprKind::String,
             ExprType::Sub { .. } => ExprKind::Sub,
