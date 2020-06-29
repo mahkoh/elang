@@ -167,6 +167,7 @@ impl<'a, 'b> Lexer<'a, 'b> {
             b'%' => one!(Percent),
             b'+' => one!(Plus),
             b'-' => one!(Minus),
+            b'.' => one!(Dot),
             _ => {}
         }
 
@@ -204,8 +205,6 @@ impl<'a, 'b> Lexer<'a, 'b> {
             (b'\\', Some(b'\\')) => two!(BackslashBackslash),
             (b'&', Some(b'&')) => two!(AmpersandAmpersand),
             (b'|', Some(b'|')) => two!(BarBar),
-            (b'.', Some(b'.')) => two!(DotDot),
-            (b'.', _) => one!(Dot),
             (b'=', Some(b'=')) => two!(EqualsEquals),
             (b'=', _) => one!(Equals),
             (b'!', Some(b'=')) => two!(ExclamationMarkEquals),

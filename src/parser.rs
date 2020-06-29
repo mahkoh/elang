@@ -233,10 +233,7 @@ impl<'a> Parser<'a> {
             }
             Token::LeftBrace => {
                 if let Some(one) = self.tokens.try_peek(1) {
-                    if one.val == Token::DotDot {
-                        // { ..            }
-                        return self.parse_fn();
-                    } else if let Token::Ident(..) = one.val {
+                    if let Token::Ident(..) = one.val {
                         if let Some(two) = self.tokens.try_peek(2) {
                             if two.val == Token::Comma
                                 || two.val == Token::QuestionMark
@@ -436,7 +433,7 @@ impl<'a> Parser<'a> {
 
             // Third case above.
             if second.val == Token::At {
-                let (pat_span, fields, wild) = self.parse_fn_pat().ctx(ctx)?;
+                let (pat_span, fields) = self.parse_fn_pat().ctx(ctx)?;
                 if let Some((&spanned, _)) = fields.get_key_value(&param_name) {
                     return self.error(
                         spanned.span,
@@ -450,7 +447,6 @@ impl<'a> Parser<'a> {
                 let arg = FnParam::Pat {
                     param_name,
                     fields,
-                    wild,
                 };
                 let span = Span::new(first.span.lo, body.span.hi);
                 let expr = ExprType::Fn {
@@ -467,13 +463,12 @@ impl<'a> Parser<'a> {
 
         // Second case above.
         if first.val == Token::LeftBrace {
-            let (pat_span, fields, wild) = self.parse_fn_pat().ctx(ctx)?;
+            let (pat_span, fields) = self.parse_fn_pat().ctx(ctx)?;
             self.tokens.next_colon().ctx(ctx)?;
             let body = self.parse_expr()?;
             let arg = FnParam::Pat {
                 param_name: None,
                 fields,
-                wild,
             };
             let span = Span::new(pat_span.lo, body.span.hi);
             let expr = ExprType::Fn {
@@ -504,24 +499,16 @@ impl<'a> Parser<'a> {
     #[allow(clippy::type_complexity)]
     fn parse_fn_pat(
         &mut self,
-    ) -> Result<(Span, Rc<HashMap<Spanned<StrId>, Option<ExprId>>>, bool)> {
+    ) -> Result<(Span, Rc<HashMap<Spanned<StrId>, Option<ExprId>>>)> {
         let opening = self.tokens.next().unwrap();
         let ctx = ErrorContext::ParseFnPattern(opening.span.lo);
         let mut vars = HashMap::<_, _>::new();
-        let mut wild = false;
 
         loop {
             let ident = self.tokens.peek(0).ctx(ctx)?;
             let (ident, span) = match ident.val {
-                Token::Ident(i) => {
-                    self.tokens.skip(1);
-                    (i, ident.span)
-                }
-                Token::DotDot => {
-                    self.tokens.skip(1);
-                    wild = true;
-                    break;
-                }
+                Token::Ident(i) => (i, ident.span),
+                Token::RightBrace => break,
                 _ => {
                     return self
                         .error(
@@ -529,7 +516,7 @@ impl<'a> Parser<'a> {
                             ErrorType::UnexpectedToken(
                                 TokenAlternative::List(&[
                                     TokenKind::Ident,
-                                    TokenKind::DotDot,
+                                    TokenKind::RightBrace,
                                 ]),
                                 ident.kind(),
                             ),
@@ -537,6 +524,7 @@ impl<'a> Parser<'a> {
                         .ctx(ctx);
                 }
             };
+            self.tokens.skip(1);
 
             let next = self
                 .tokens
@@ -561,30 +549,15 @@ impl<'a> Parser<'a> {
             };
 
             let next = self.tokens.peek(0).ctx(ctx)?;
-            match next.val {
-                Token::Comma => self.tokens.skip(1),
-                Token::RightBrace => break,
-                _ => {
-                    return self
-                        .error(
-                            next.span,
-                            ErrorType::UnexpectedToken(
-                                TokenAlternative::List(&[
-                                    TokenKind::Comma,
-                                    TokenKind::RightBrace,
-                                ]),
-                                next.kind(),
-                            ),
-                        )
-                        .ctx(ctx);
-                }
-            };
+            if next.val == Token::Comma {
+                self.tokens.skip(1);
+            }
         }
 
         vars.shrink_to_fit();
         let closing = self.tokens.next_right_brace().ctx(ctx)?;
         let span = Span::new(opening.span.lo, closing.span.hi);
-        Ok((span, Rc::new(vars), wild))
+        Ok((span, Rc::new(vars)))
     }
 
     /// Parses a simple expression.

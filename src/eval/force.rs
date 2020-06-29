@@ -681,18 +681,9 @@ impl Elang {
             FnParam::Pat {
                 param_name,
                 fields,
-                wild,
             } => {
                 let ctx = ErrorContext::EvalFnPat(pat.span);
                 let arg_fields = self.get_fields_(arg).ctx(ctx)?;
-                if !wild {
-                    for &id in arg_fields.keys() {
-                        if fields.get(&id).is_none() {
-                            return self
-                                .error2(arg, ErrorType::ExtraArgument(*id, pat.span));
-                        }
-                    }
-                }
                 for (&id, &alt) in fields.iter() {
                     if let Some(&val) = arg_fields.get(&id) {
                         scope.bind(*id, val);

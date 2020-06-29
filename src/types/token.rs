@@ -21,7 +21,6 @@ pub enum Token {
     Colon,
     Comma,
     Dot,
-    DotDot,
     Else,
     Equals,
     EqualsEquals,
@@ -81,8 +80,6 @@ pub enum TokenKind {
     Comma,
     /// `.`
     Dot,
-    /// `..`
-    DotDot,
     /// `else`
     Else,
     /// `=`
@@ -177,7 +174,6 @@ impl TokenKind {
             TokenKind::Colon => ":",
             TokenKind::Comma => ",",
             TokenKind::Dot => ".",
-            TokenKind::DotDot => "..",
             TokenKind::Else => "else",
             TokenKind::Equals => "=",
             TokenKind::EqualsEquals => "==",
@@ -268,7 +264,6 @@ impl Token {
             Token::RightBrace => false,
             Token::RightParen => false,
             Token::Dot => false,
-            Token::DotDot => false,
             Token::Equals => false,
             Token::Colon => false,
             Token::Comma => false,
@@ -299,7 +294,6 @@ impl Token {
             Token::BarBar => TokenKind::BarBar,
             Token::Colon => TokenKind::Colon,
             Token::Comma => TokenKind::Comma,
-            Token::DotDot => TokenKind::DotDot,
             Token::Dot => TokenKind::Dot,
             Token::Else => TokenKind::Else,
             Token::EqualsEquals => TokenKind::EqualsEquals,

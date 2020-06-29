@@ -260,7 +260,6 @@ fn print_tree_<W: Write>(
                 FnParam::Pat {
                     param_name,
                     ref fields,
-                    wild,
                 } => {
                     let name = match param_name {
                         Some(i) => store.get_str(i.val),
@@ -275,10 +274,6 @@ fn print_tree_<W: Write>(
                         write!(w, "{} [label=\"", id)?;
                         w.write_all(&store.get_str(**arg.0))?;
                         write!(w, "\"];{} -> {};", aid, id)?;
-                    }
-                    if wild {
-                        *id += 1;
-                        write!(w, "{} [label=\"..\"];{} -> {};", id, aid, id)?;
                     }
                 }
             }

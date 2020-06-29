@@ -317,7 +317,6 @@ pub enum FnParam {
     Pat {
         param_name: Option<Spanned<StrId>>,
         fields: Rc<HashMap<Spanned<StrId>, Option<ExprId>>>,
-        wild: bool,
     },
 }
 

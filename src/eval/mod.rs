@@ -328,7 +328,6 @@ impl Elang {
                                     FnParam::Pat {
                                         param_name,
                                         ref fields,
-                                        wild,
                                     },
                             },
                         body,
@@ -341,7 +340,6 @@ impl Elang {
                 let pat = FnParam::Pat {
                     param_name,
                     fields: Rc::new(nfields),
-                    wild,
                 };
                 ExprType::Fn {
                     func: FnType::Normal {
