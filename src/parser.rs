@@ -40,7 +40,10 @@ impl<'a> Parser<'a> {
         if let Some(t) = self.tokens.try_next() {
             return self.error(
                 t.span,
-                ErrorType::UnexpectedToken(TokenAlternative::EndOfInput, t.kind()),
+                ErrorType::UnexpectedToken {
+                    expected: TokenAlternative::EndOfInput,
+                    encountered: t.kind(),
+                },
             );
         }
         Ok(expr.val)
@@ -211,10 +214,10 @@ impl<'a> Parser<'a> {
         if !token.val.starts_expr() {
             return self.error(
                 token.span,
-                ErrorType::UnexpectedToken(
-                    TokenAlternative::StartOfExpression,
-                    token.kind(),
-                ),
+                ErrorType::UnexpectedToken {
+                    expected: TokenAlternative::StartOfExpression,
+                    encountered: token.kind(),
+                },
             );
         }
 
@@ -342,14 +345,14 @@ impl<'a> Parser<'a> {
             _ => {
                 return self.error(
                     next.span,
-                    ErrorType::UnexpectedToken(
-                        TokenAlternative::List(&[
+                    ErrorType::UnexpectedToken {
+                        expected: TokenAlternative::List { candidates: &[
                             TokenKind::Number,
                             TokenKind::Ident,
                             TokenKind::LeftParen,
-                        ]),
-                        next.kind(),
-                    ),
+                        ]},
+                        encountered: next.kind(),
+                    },
                 );
             }
         };
@@ -437,7 +440,7 @@ impl<'a> Parser<'a> {
                 if let Some((&spanned, _)) = fields.get_key_value(&param_name) {
                     return self.error(
                         spanned.span,
-                        ErrorType::DuplicateIdentifier(first.span.span(param_name)),
+                        ErrorType::DuplicateIdentifier { previous_declaration: first.span.span(param_name) },
                     );
                 }
                 self.tokens.next_colon().ctx(ctx)?;
@@ -513,13 +516,13 @@ impl<'a> Parser<'a> {
                     return self
                         .error(
                             ident.span,
-                            ErrorType::UnexpectedToken(
-                                TokenAlternative::List(&[
+                            ErrorType::UnexpectedToken {
+                                expected: TokenAlternative::List { candidates: &[
                                     TokenKind::Ident,
                                     TokenKind::RightBrace,
-                                ]),
-                                ident.kind(),
-                            ),
+                                ]},
+                                encountered: ident.kind(),
+                            },
                         )
                         .ctx(ctx);
                 }
@@ -542,7 +545,7 @@ impl<'a> Parser<'a> {
             match vars.entry(span.span(ident)) {
                 Entry::Occupied(e) => {
                     return self
-                        .error(span, ErrorType::DuplicateIdentifier(*e.key()))
+                        .error(span, ErrorType::DuplicateIdentifier { previous_declaration: *e.key() })
                         .ctx(ctx);
                 }
                 Entry::Vacant(e) => e.insert(alt),
@@ -625,13 +628,13 @@ impl<'a> Parser<'a> {
                     return self
                         .error(
                             next.span,
-                            ErrorType::UnexpectedToken(
-                                TokenAlternative::List(&[
+                            ErrorType::UnexpectedToken {
+                                expected: TokenAlternative::List { candidates: &[
                                     TokenKind::In,
                                     TokenKind::Comma,
-                                ]),
-                                next.kind(),
-                            ),
+                                ]},
+                                encountered: next.kind(),
+                            },
                         )
                         .ctx(ctx);
                 }
@@ -639,7 +642,7 @@ impl<'a> Parser<'a> {
             match bindings.entry(span.span.span(name)) {
                 Entry::Occupied(e) => {
                     return self
-                        .error(span.span, ErrorType::DuplicateIdentifier(*e.key()))
+                        .error(span.span, ErrorType::DuplicateIdentifier { previous_declaration: *e.key() })
                         .ctx(ctx);
                 }
                 Entry::Vacant(e) => e.insert(expr.val),
@@ -724,13 +727,13 @@ impl<'a> Parser<'a> {
                     return self
                         .error(
                             next.span,
-                            ErrorType::UnexpectedToken(
-                                TokenAlternative::List(&[
+                            ErrorType::UnexpectedToken {
+                                expected: TokenAlternative::List { candidates: &[
                                     TokenKind::Comma,
                                     TokenKind::RightBracket,
-                                ]),
-                                next.kind(),
-                            ),
+                                ]},
+                                encountered: next.kind(),
+                            },
                         )
                         .ctx(ctx);
                 }
@@ -791,7 +794,7 @@ impl<'a> Parser<'a> {
                             return self
                                 .error(
                                     next.span,
-                                    ErrorType::DuplicateIdentifier(*e.key()),
+                                    ErrorType::DuplicateIdentifier { previous_declaration: *e.key() },
                                 )
                                 .ctx(ctx);
                         }
@@ -812,7 +815,7 @@ impl<'a> Parser<'a> {
                                     return self
                                         .error(
                                             el.span,
-                                            ErrorType::DuplicateIdentifier(*e.key()),
+                                            ErrorType::DuplicateIdentifier { previous_declaration: *e.key() },
                                         )
                                         .ctx(ctx);
                                 }
@@ -826,14 +829,14 @@ impl<'a> Parser<'a> {
                             return self
                                 .error(
                                     el.span,
-                                    ErrorType::UnexpectedToken(
-                                        TokenAlternative::List(&[
+                                    ErrorType::UnexpectedToken {
+                                        expected: TokenAlternative::List { candidates: &[
                                             TokenKind::Ident,
                                             TokenKind::Comma,
                                             TokenKind::RightBrace,
-                                        ]),
-                                        el.kind(),
-                                    ),
+                                        ]},
+                                        encountered: el.kind(),
+                                    },
                                 )
                                 .ctx(ErrorContext::ParseInherit(next.span.lo));
                         }
@@ -843,14 +846,14 @@ impl<'a> Parser<'a> {
                     return self
                         .error(
                             next.span,
-                            ErrorType::UnexpectedToken(
-                                TokenAlternative::List(&[
+                            ErrorType::UnexpectedToken {
+                                expected: TokenAlternative::List { candidates: &[
                                     TokenKind::Ident,
                                     TokenKind::Inherit,
                                     TokenKind::RightBrace,
-                                ]),
-                                next.kind(),
-                            ),
+                                ]},
+                                encountered: next.kind(),
+                            },
                         )
                         .ctx(ctx);
                 }
@@ -864,13 +867,13 @@ impl<'a> Parser<'a> {
                     return self
                         .error(
                             next.span,
-                            ErrorType::UnexpectedToken(
-                                TokenAlternative::List(&[
+                            ErrorType::UnexpectedToken {
+                                expected: TokenAlternative::List { candidates: &[
                                     TokenKind::Comma,
                                     TokenKind::RightBrace,
-                                ]),
-                                next.kind(),
-                            ),
+                                ]},
+                                encountered: next.kind(),
+                            },
                         )
                         .ctx(ctx);
                 }

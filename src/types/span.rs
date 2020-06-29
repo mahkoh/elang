@@ -6,7 +6,14 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-/// A span in a codemap.
+/// A span
+///
+/// A span represents a section of source code. Each expression has an associated span that
+/// represents where the expression originates. Spans are only used for diagnostic purposes.
+///
+/// A span should never be empty and should never cross more than one piece of source code.
+///
+/// As a special case, the built-in span is used for expressions that are not backed by source code.
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Span {
     pub(crate) lo: u32,
@@ -14,24 +21,27 @@ pub struct Span {
 }
 
 impl Span {
-    /// Creates a new span.
+    /// Creates a new span
+    ///
+    /// # Panics
+    ///
+    /// This function panics if `lo >= hi`.
     pub fn new(lo: u32, hi: u32) -> Span {
+        assert!(lo < hi);
         Span { lo, hi }
     }
 
-    /// Creates a span that is associated with a location built into the compiler.
-    ///
-    /// = Remarks
-    ///
-    /// This span will be printed as `<built-in>` in diagnostic messages.
+    /// Returns the span that represents a built-in expression
     pub fn built_in() -> Span {
         Span::new(!0 - 1, !0)
     }
 
+    /// Returns the start of the span
     pub fn lo(self) -> u32 {
         self.lo
     }
 
+    /// Returns the end of the span
     pub fn hi(self) -> u32 {
         self.hi
     }
@@ -47,11 +57,32 @@ impl Debug for Span {
     }
 }
 
-/// An object with a span.
+/// An object with a span
+///
+/// This type derefs to the contained object.
+///
+/// This type's `Hash` and `PartialEq` implementations delegate to the contained object.
 #[derive(Copy, Clone, Eq)]
 pub struct Spanned<T> {
-    pub span: Span,
-    pub val: T,
+    pub(crate) span: Span,
+    pub(crate) val: T,
+}
+
+impl<T> Spanned<T> {
+    /// Creates a new instance
+    pub fn new(span: Span, val: T) -> Spanned<T> {
+        Spanned { span, val }
+    }
+
+    /// Returns the span
+    pub fn span(&self) -> Span {
+        self.span
+    }
+
+    /// Unwraps the object
+    pub fn unwrap(self) -> T {
+        self.val
+    }
 }
 
 impl<T: PartialEq> PartialEq<Spanned<T>> for Spanned<T> {
@@ -75,12 +106,6 @@ impl<T: Debug> Debug for Spanned<T> {
 impl<T> Borrow<T> for Spanned<T> {
     fn borrow(&self) -> &T {
         &self.val
-    }
-}
-
-impl<T> Spanned<T> {
-    pub fn new(span: Span, val: T) -> Spanned<T> {
-        Spanned { span, val }
     }
 }
 

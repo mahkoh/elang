@@ -6,6 +6,8 @@ use crate::types::{
     token::{SToken, Token, TokenKind},
     token_stream::TokenStream,
 };
+use num_bigint::BigUint;
+use num_traits::ToPrimitive;
 
 pub fn lex(lo: u32, src: &[u8], store: &mut Store) -> Result<TokenStream> {
     let mut lexer = Lexer::new(lo, src, store);
@@ -53,7 +55,7 @@ impl<'a> CharStream<'a> {
         self.pos as u32
     }
 
-    fn text(&self) -> &[u8] {
+    fn text(&self) -> &'a [u8] {
         &self.src[self.pos..]
     }
 }
@@ -88,7 +90,7 @@ impl<'a, 'b> Lexer<'a, 'b> {
             //
         }
         if let Some(t) = self.braces.pop() {
-            return self.error(t.span, ErrorType::UnmatchedToken(TokenKind::LeftBrace));
+            return self.error(t.span, ErrorType::UnmatchedToken { kind: TokenKind::LeftBrace });
         }
         Ok(())
     }
@@ -182,7 +184,7 @@ impl<'a, 'b> Lexer<'a, 'b> {
                         Some(t) => t,
                         _ => {
                             return self
-                                .error(res.span, ErrorType::UnmatchedToken(t.kind()))
+                                .error(res.span, ErrorType::UnmatchedToken { kind: t.kind() })
                         }
                     };
                     if *ty == BraceType::String {
@@ -301,7 +303,7 @@ impl<'a, 'b> Lexer<'a, 'b> {
 
         self.error(
             Span::new(self.lo + cur_pos, self.lo + cur_pos + 1),
-            ErrorType::UnexpectedByte(cur),
+            ErrorType::InvalidByteForTokenStart { byte: cur },
         )
     }
 
@@ -346,7 +348,7 @@ impl<'a, 'b> Lexer<'a, 'b> {
                 _ => {
                     return self.error(
                         Span::new(self.lo + esc_pos, self.pos()),
-                        ErrorType::UnknownEscapeSequence(cur),
+                        ErrorType::UnknownEscapeSequence { escape_sequence: cur },
                     );
                 }
             }
@@ -367,7 +369,10 @@ impl<'a, 'b> Lexer<'a, 'b> {
                     Some((pos, b)) => {
                         return self.error(
                             Span::new(pos, self.pos()),
-                            ErrorType::UnexpectedByte(b),
+                            ErrorType::UnexpectedByte {
+                                expected: &[$b],
+                                encountered: b,
+                            }
                         )
                     }
                     _ => return self.unexpected_eof(),
@@ -378,26 +383,14 @@ impl<'a, 'b> Lexer<'a, 'b> {
         next!(b'{');
         let before = self.pos();
         let mut len = 0;
-        let mut val = 0u32;
-        while let Some((pos, mut next)) = self.chars.peek(0) {
-            next -= match next {
-                b'0'..=b'9' => b'0',
-                b'a'..=b'f' => b'a' - 10,
-                b'A'..=b'F' => b'A' - 10,
+        let mut text = self.chars.text();
+        while text.len() > 0 {
+            match text[0] {
+                b'0'..=b'9' | b'a'..=b'f' | b'A'..=b'F' => { },
                 _ => break,
-            };
-            len += 1;
-            self.chars.skip(1);
-            val = match val
-                .checked_shl(4)
-                .and_then(|val| val.checked_add(next as u32))
-            {
-                Some(val) => val,
-                _ => {
-                    return self
-                        .error(Span::new(before, pos), ErrorType::OutOfBoundsLiteral)
-                }
             }
+            len += 1;
+            text = &text[1..];
         }
         if len == 0 {
             return self.error(
@@ -405,11 +398,18 @@ impl<'a, 'b> Lexer<'a, 'b> {
                 ErrorType::MissingCodePoint,
             );
         }
+        let val = BigUint::parse_bytes(&self.chars.text()[..len], 16).unwrap();
+        self.chars.skip(len);
         let after = self.pos();
+        let val = match val.to_u32() {
+            Some(v) => v,
+            _ => return self
+                    .error(Span::new(before, after), ErrorType::OutOfBoundsLiteral)
+        };
         next!(b'}');
         match std::char::from_u32(val) {
             Some(c) => Ok(c),
-            _ => self.error(Span::new(before, after), ErrorType::InvalidCodePoint(val)),
+            _ => self.error(Span::new(before, after), ErrorType::InvalidCodePoint { code_point: val }),
         }
     }
 
@@ -446,7 +446,7 @@ impl<'a, 'b> Lexer<'a, 'b> {
                         b'0'..=b'9' | b'a'..=b'z' | b'A'..=b'Z' => {
                             return self.error(
                                 Span::new(next_pos, next_pos + 1),
-                                ErrorType::UnexpectedNumberSuffix(next),
+                                ErrorType::InvalidDigit { digit: next },
                             );
                         }
                         _ => break,

@@ -192,52 +192,51 @@ impl Diagnostic {
     ) {
         let text = match msg.error {
             ErrorType::UnexpectedEndOfInput => format!("unexpected end of input"),
-            ErrorType::UnexpectedToken(exp, act) => match exp {
+            ErrorType::UnexpectedToken { expected, encountered } => match expected {
                 TokenAlternative::EndOfInput => format!(
                     "unexpected token. expected end of input, got `{}`",
-                    act.as_str()
+                    encountered.as_str()
                 ),
                 TokenAlternative::StartOfExpression => format!(
                     "unexpected token. expected start of expression, got `{}`",
-                    act.as_str()
+                    encountered.as_str()
                 ),
-                TokenAlternative::List(l) => {
+                TokenAlternative::List { candidates } => {
                     let mut s = format!("unexpected token. expected ");
-                    let _ = match l {
+                    let _ = match candidates {
                         &[t] => write!(s, "`{}`", t.as_str()),
                         &[t1, t2] => write!(s, "`{}` or `{}`", t1.as_str(), t2.as_str()),
                         _ => {
-                            for t in &l[..l.len() - 1] {
+                            for t in &candidates[..candidates.len() - 1] {
                                 let _ = write!(&mut s, "`{}`, ", t.as_str());
                             }
-                            write!(&mut s, " or `{}`", l.last().unwrap().as_str())
+                            write!(&mut s, " or `{}`", candidates.last().unwrap().as_str())
                         }
                     };
-                    let _ = write!(s, ", got `{}`", act.as_str());
+                    let _ = write!(s, ", got `{}`", encountered.as_str());
                     s
                 }
             },
             ErrorType::OutOfBoundsLiteral => format!("out-of-bounds literal"),
-            ErrorType::UnexpectedNumberSuffix(b) => format!(
-                "unexpected number suffix {:?}",
-                &String::from_utf8_lossy(&[b])
+            ErrorType::InvalidDigit { digit } => format!(
+                "unexpected number suffix {:?}", digit as char
             ),
-            ErrorType::UnexpectedByte(b) => format!("unexpected byte 0x{:02X}", b),
+            ErrorType::InvalidByteForTokenStart { byte } => format!("expected token, found byte {:?}", byte as char),
             ErrorType::MissingCodePoint => format!("missing code point"),
-            ErrorType::InvalidCodePoint(i) => format!("invalid code point {}", i),
-            ErrorType::UnknownEscapeSequence(b) => {
-                format!("unknown escape sequence {:?}", b)
+            ErrorType::InvalidCodePoint { code_point } => format!("invalid code point {}", code_point),
+            ErrorType::UnknownEscapeSequence { escape_sequence } => {
+                format!("unknown escape sequence {:?}", escape_sequence as char)
             }
-            ErrorType::DuplicateIdentifier(id) => {
-                let s = e.get_interned(*id);
+            ErrorType::DuplicateIdentifier { previous_declaration } => {
+                let s = e.get_interned(*previous_declaration);
                 let txt =
                     format!("duplicate identifier `{}`", &String::from_utf8_lossy(&s));
                 self.common(msg.span, "error: ", &txt);
-                self.common(id.span, "note: ", "previous declaration here");
+                self.common(previous_declaration.span, "note: ", "previous declaration here");
                 self.trace(e, msg);
                 return;
             }
-            ErrorType::UnexpectedExprKind(expected, actual) => {
+            ErrorType::UnexpectedExprKind { expected, encountered } => {
                 let mut s = format!("unexpected expression type. expected ");
                 let _ = match expected {
                     &[t] => write!(s, "`{}`", t.as_str()),
@@ -249,53 +248,56 @@ impl Diagnostic {
                         write!(&mut s, " or `{}`", expected.last().unwrap().as_str())
                     }
                 };
-                let _ = write!(s, ", got `{}`", actual.as_str());
+                let _ = write!(s, ", got `{}`", encountered.as_str());
                 s
             }
-            ErrorType::MissingMapField(name) => {
-                let s = e.get_interned(name);
+            ErrorType::MissingMapField { field_name } => {
+                let s = e.get_interned(field_name);
                 format!("missing map field `{}`", &String::from_utf8_lossy(&s))
             }
-            ErrorType::MissingListField(ref n) => format!("missing list field {}", n),
-            ErrorType::InfiniteRecursion(_) => format!("infinite recursion"),
-            ErrorType::CannotForceExpr(ty) => {
-                format!("cannot force expression of type `{}`", ty.as_str())
+            ErrorType::MissingListField { ref index } => format!("missing list field {}", index),
+            ErrorType::InfiniteRecursion { .. } => format!("infinite recursion"),
+            ErrorType::CannotEvaluateExpr { kind } => {
+                format!("cannot force expression of type `{}`", kind.as_str())
             }
             ErrorType::DivideByZero => format!("division by 0"),
-            ErrorType::ExtraArgument(name, span) => {
-                let s = e.get_interned(name);
-                self.common(
-                    msg.span,
-                    "error: ",
-                    &format!("extra argument `{}`", &String::from_utf8_lossy(&s)),
-                );
-                self.common(span, "note: ", "parameters declared here");
-                self.trace(e, msg);
-                return;
-            }
-            ErrorType::MissingArgument(name) => {
-                let s = e.get_interned(*name);
+            ErrorType::MissingArgument { missing_parameter } => {
+                let s = e.get_interned(*missing_parameter);
                 self.common(
                     msg.span,
                     "error: ",
                     &format!("missing argument `{}`", &String::from_utf8_lossy(&s)),
                 );
-                self.common(name.span, "note: ", "parameter declared here");
+                self.common(missing_parameter.span, "note: ", "parameter declared here");
                 self.trace(e, msg);
                 return;
             }
-            ErrorType::MissingNewline => format!("missing newline"),
             ErrorType::SpanOverflow => format!("span overflow"),
             ErrorType::AssertionFailed => format!("assertion failed"),
             ErrorType::EmptyNumberLiteral => format!("empty number literal"),
-            ErrorType::Custom(ref custom) => {
-                let custom = &**custom;
+            ErrorType::Custom { ref error } => {
+                let custom = &**error;
                 h(custom)
             }
             ErrorType::CannotStringifyNonInteger => {
                 format!("cannot stringify numbers that are not integers")
             }
-            ErrorType::UnmatchedToken(tt) => format!("unmatched token `{}`", tt.as_str()),
+            ErrorType::UnmatchedToken { kind } => format!("unmatched token `{}`", kind.as_str()),
+            ErrorType::UnexpectedByte { expected, encountered } => {
+                let mut s = format!("unexpected bytes. expected ");
+                let _ = match expected {
+                    &[t] => write!(s, "{:?}", t as char),
+                    &[t1, t2] => write!(s, "{:?} or {:?}", t1 as char, t2 as char),
+                    _ => {
+                        for &t in &expected[..expected.len() - 1] {
+                            let _ = write!(&mut s, "{:?}, ", t as char);
+                        }
+                        write!(&mut s, " or {:?}", expected.last().copied().unwrap() as char)
+                    }
+                };
+                let _ = write!(s, ", got {:?}", encountered as char);
+                s
+            },
         };
         self.common(msg.span, "error: ", &text);
         self.trace(e, msg);
@@ -331,7 +333,7 @@ impl Diagnostic {
                 ErrorContext::EvalOverlay(eid) => (e(eid), q("overlay expression")),
                 ErrorContext::EvalAdd(eid) => (e(eid), q("add expression")),
                 ErrorContext::EvalCond(eid) => (e(eid), q("conditional expression")),
-                ErrorContext::EvalStringify(eid) => (e(eid), q("stringify expression")),
+                ErrorContext::EvalStringify(eid) => (e(eid), q("string interpolation")),
                 ErrorContext::EvalApl(eid) => (e(eid), q("function application")),
                 ErrorContext::EvalSelect(eid) => (e(eid), q("select expression")),
                 ErrorContext::EvalFnPat(span) => {

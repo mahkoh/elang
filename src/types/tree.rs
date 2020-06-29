@@ -19,17 +19,13 @@ use std::{
 /// An expression with an associated span.
 pub type SExpr = Spanned<ExprId>;
 
-/// A reference-counted expression with interior mutability.
-///
-/// = Remarks
-///
-/// Instead of copying `Expr_`s every time they are used, we add references to them. This
-/// way we only have to evaluate each `Expr_` once.
+/// The id of an expression stored in an elang engine
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct ExprId {
     pub(crate) id: u32,
 }
 
+/// An expression
 #[non_exhaustive]
 #[derive(Debug)]
 pub struct Expr {
@@ -47,15 +43,18 @@ impl Expr {
         }
     }
 
+    /// Returns the id of this expression
     pub fn id(&self) -> ExprId {
         self.id
     }
 
+    /// Returns the span of this expression
     pub fn span(&self) -> Span {
         self.span
     }
 
-    pub fn value(&self) -> &RefCell<ExprType> {
+    /// Returns the type of this expression
+    pub fn ty(&self) -> &RefCell<ExprType> {
         &self.val
     }
 }
@@ -154,7 +153,7 @@ pub enum ExprType {
     Test { base: ExprId, path: ExprId },
 }
 
-/// The type of a value of an expression
+/// The kind of an expression
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum ExprKind {
     /// `lhs + rhs`
@@ -309,22 +308,27 @@ impl ExprType {
     }
 }
 
+/// The parameter of a normal function
 #[derive(Clone)]
 pub enum FnParam {
+    /// `a: body`
     Ident {
         param_name: StrId,
     },
+    /// `a @ { b, c ? e }: body`
     Pat {
         param_name: Option<Spanned<StrId>>,
         fields: Rc<HashMap<Spanned<StrId>, Option<ExprId>>>,
     },
 }
 
-pub trait BuiltInFn {
+/// A function written in Rust
+pub trait NativeFn {
+    /// Applies the function to an expression
     fn apply(&self, elang: &mut Elang, expr: Rc<Expr>) -> Result<ExprType>;
 }
 
-impl<T> BuiltInFn for T
+impl<T> NativeFn for T
 where
     T: Fn(&mut Elang, Rc<Expr>) -> Result<ExprType>,
 {
@@ -333,11 +337,14 @@ where
     }
 }
 
+/// The type of a function
 #[derive(Clone)]
 pub enum FnType {
-    BuiltIn {
-        func: Rc<dyn BuiltInFn>,
+    /// A function written in Rust
+    Native {
+        func: Rc<dyn NativeFn>,
     },
+    /// A function written in elang
     Normal {
         param: Spanned<FnParam>,
         body: ExprId,
@@ -345,7 +352,10 @@ pub enum FnType {
 }
 
 impl Debug for FnType {
-    fn fmt(&self, _: &mut Formatter<'_>) -> fmt::Result {
-        unimplemented!()
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            FnType::Native { .. } => write!(f, "native"),
+            FnType::Normal { .. } => write!(f, "normal"),
+        }
     }
 }

@@ -131,7 +131,7 @@ impl<'a> Test<'a> {
                 }
             }
             serde_json::Value::Object(ref s2) => {
-                let s1 = self.e.get_fields(actual)?;
+                let s1 = self.e.get_map(actual)?;
                 if s1.len() != s2.len() {
                     return self.error(
                         actual,
@@ -167,7 +167,7 @@ impl<'a> Test<'a> {
     }
 
     fn error(&self, expr: ExprId, msg: String) -> Result<(), ErrorCollection> {
-        Err(self.e.error(expr, ErrorType::Custom(Rc::new(Ce(msg)))).into())
+        Err(self.e.error(expr, ErrorType::Custom { error: Rc::new(Ce(msg)) }).into())
     }
 }
 

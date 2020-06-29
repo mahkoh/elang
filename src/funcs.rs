@@ -4,7 +4,7 @@ use crate::{
     types::{
         span::Span,
         store::Store,
-        tree::{BuiltInFn, Expr, ExprType, FnType},
+        tree::{NativeFn, Expr, ExprType, FnType},
     },
     Elang, Error, ErrorType, ExprKind,
 };
@@ -13,14 +13,14 @@ use std::rc::Rc;
 macro_rules! bi {
     ($f:expr) => {
         ExprType::Fn {
-            func: FnType::BuiltIn { func: Rc::new($f) },
+            func: FnType::Native { func: Rc::new($f) },
         }
     };
 }
 
-pub fn to_list() -> Rc<dyn BuiltInFn> {
+pub fn to_list() -> Rc<dyn NativeFn> {
     let f = move |eval: &mut Elang, e: Rc<Expr>| {
-        let fields = eval.get_fields(e.id)?;
+        let fields = eval.get_map(e.id)?;
         let mut list = Vec::with_capacity(fields.len());
         for &val in fields.values() {
             list.push(val);
@@ -32,7 +32,7 @@ pub fn to_list() -> Rc<dyn BuiltInFn> {
     Rc::new(f)
 }
 
-pub fn assert() -> Rc<dyn BuiltInFn> {
+pub fn assert() -> Rc<dyn NativeFn> {
     let f = move |eval: &mut Elang, cond: Rc<Expr>| {
         if eval.get_bool(cond.id)? {
             let f = move |eval: &mut Elang, tail: Rc<Expr>| {
@@ -53,7 +53,7 @@ pub fn assert() -> Rc<dyn BuiltInFn> {
     Rc::new(f)
 }
 
-pub fn contains() -> Rc<dyn BuiltInFn> {
+pub fn contains() -> Rc<dyn NativeFn> {
     let f = move |eval: &mut Elang, list: Rc<Expr>| {
         let list = eval.get_list(list.id)?;
         let f = move |eval: &mut Elang, val: Rc<Expr>| {
@@ -69,7 +69,7 @@ pub fn contains() -> Rc<dyn BuiltInFn> {
     Rc::new(f)
 }
 
-pub fn filter() -> Rc<dyn BuiltInFn> {
+pub fn filter() -> Rc<dyn NativeFn> {
     let f = move |eval: &mut Elang, cond: Rc<Expr>| {
         let f = move |eval: &mut Elang, olist: Rc<Expr>| {
             let list = eval.get_list(olist.id)?;
@@ -96,7 +96,7 @@ pub fn filter() -> Rc<dyn BuiltInFn> {
     Rc::new(f)
 }
 
-pub fn ty() -> Rc<dyn BuiltInFn> {
+pub fn ty() -> Rc<dyn NativeFn> {
     let f = move |eval: &mut Elang, e: Rc<Expr>| {
         let val = eval.resolve(e.id)?;
         let ty = match *val.val.borrow() {
@@ -108,10 +108,10 @@ pub fn ty() -> Rc<dyn BuiltInFn> {
             ExprType::Bool { .. } => "bool",
             ExprType::Null => "null",
             ref o => {
-                return Err(eval.error(
+                return Err(eval.perror(
                     e.id,
-                    ErrorType::UnexpectedExprKind(
-                        &[
+                    ErrorType::UnexpectedExprKind {
+                        expected: &[
                             ExprKind::Number,
                             ExprKind::String,
                             ExprKind::Fn,
@@ -120,8 +120,8 @@ pub fn ty() -> Rc<dyn BuiltInFn> {
                             ExprKind::Bool,
                             ExprKind::Null,
                         ],
-                        o.kind(),
-                    ),
+                        encountered: o.kind(),
+                    },
                 ))
             }
         };
@@ -133,7 +133,7 @@ pub fn ty() -> Rc<dyn BuiltInFn> {
 
 macro_rules! is {
     ($name:ident, $pat:pat) => {
-        pub fn $name() -> Rc<dyn BuiltInFn> {
+        pub fn $name() -> Rc<dyn NativeFn> {
             let f = move |eval: &mut Elang, e: Rc<Expr>| {
                 let val = eval.resolve(e.id)?;
                 let val = match *val.val.borrow() {

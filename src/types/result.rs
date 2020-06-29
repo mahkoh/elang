@@ -1,5 +1,6 @@
 use crate::{types::diagnostic::ErrorContext, Error};
 
+/// The elang result type
 pub type Result<T = ()> = std::result::Result<T, Error>;
 
 pub(crate) trait ResultUtil<T> {

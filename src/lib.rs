@@ -10,7 +10,7 @@ pub use crate::{
         span::{Span, Spanned},
         store::{StrId, Intern},
         token::TokenKind,
-        tree::{BuiltInFn, Expr, ExprId, ExprKind, ExprType, FnParam, FnType},
+        tree::{NativeFn, Expr, ExprId, ExprKind, ExprType, FnParam, FnType},
         value::Value,
     },
 };
@@ -73,23 +73,19 @@ impl Elang {
             })
             .is_none();
         if overflow {
-            return self.err(ErrorType::SpanOverflow);
+            return Err(Error {
+                span: Span::built_in(),
+                error: ErrorType::SpanOverflow,
+                context: vec![],
+            })
         }
         let tokens = lexer::lex(lo, &src, &mut self.store)?;
         parser::parse(&mut self.store, tokens)
     }
 
-    fn err<T>(&self, details: ErrorType) -> Result<T> {
-        Err(Error {
-            span: Span::built_in(),
-            error: details,
-            context: vec![],
-        })
-    }
-
     /// Evaluates the expression
     ///
-    /// After this function returns successfully, `expr_id` has been modified such that
+    /// After this function returns successfully, the expression has been modified such that
     /// its type is one of the following:
     ///
     /// * `Number`
@@ -101,10 +97,10 @@ impl Elang {
     /// * `Map` (non recursive)
     /// * `Resolved` (where the value of the destination is one of these)
     ///
-    /// After this function returns with an error, some subtrees of `expr_id` might have
+    /// After this function returns with an error, some subtrees of the expression might have
     /// been modified as above.
     ///
-    /// If any expression `e` that is part of the tree of `expr_id`
+    /// If any expression `e` that is part of the tree of the expression
     ///
     /// * is evaluated by this function and
     /// * `e` is already borrowed when this function is called,
@@ -114,18 +110,22 @@ impl Elang {
         self.force(expr_id)
     }
 
+    /// Adds an expression to the engine
     pub fn add_expr(&mut self, span: Span, value: ExprType) -> ExprId {
         self.store.add_expr(span, value)
     }
 
+    /// Retrieves an expression
     pub fn get_expr(&self, expr_id: ExprId) -> Rc<Expr> {
         self.store.get_expr(expr_id)
     }
 
+    /// Adds a string to the engine
     pub fn intern<T: Intern>(&mut self, val: T) -> StrId {
         self.store.add_str(val)
     }
 
+    /// Retrieves an interned string
     pub fn get_interned(&self, i: StrId) -> Rc<[u8]> {
         self.store.get_str(i)
     }
@@ -133,46 +133,71 @@ impl Elang {
 
 /// Utility methods
 impl Elang {
+    /// Evaluates an expression and walks the `Resolved` chain
+    ///
+    /// The type of the returned expression is one of the types produced by `eval` but not
+    /// `Resolved`.
     pub fn resolve(&mut self, expr_id: ExprId) -> Result<Rc<Expr>> {
         self.resolve_(expr_id)
     }
 
+    /// Returns the span of an expression
     pub fn span(&self, expr_id: ExprId) -> Span {
         self.span_(expr_id)
     }
 
-    pub fn get_string(&mut self, expr_id: ExprId) -> Result<StrId> {
-        self.get_string_(expr_id)
-    }
-
+    /// Evaluates an expression, asserts that it is a boolean, and returns it
     pub fn get_bool(&mut self, expr_id: ExprId) -> Result<bool> {
         self.get_bool_(expr_id)
     }
 
-    pub fn get_number(&mut self, expr_id: ExprId) -> Result<Rc<BigRational>> {
-        self.get_number_(expr_id)
+    /// Evaluates an expression, asserts that it is a function, and returns it
+    pub fn get_fn(&mut self, expr_id: ExprId) -> Result<FnType> {
+        self.get_fn_(expr_id)
     }
 
-    pub fn get_null(&mut self, expr_id: ExprId) -> Result {
-        let res = self.resolve_(expr_id)?;
-        let val = res.val.borrow();
-        match *val {
-            ExprType::Null => Ok(()),
-            _ => self.error2(
-                expr_id,
-                ErrorType::UnexpectedExprKind(&[ExprKind::Null], val.kind()),
-            ),
-        }
-    }
-
+    /// Evaluates an expression, asserts that it is a list, and returns it
     pub fn get_list(&mut self, expr_id: ExprId) -> Result<Rc<[ExprId]>> {
         self.get_list_(expr_id)
     }
 
+    /// Evaluates an expression, asserts that it is a map, and returns it
+    pub fn get_map(
+        &mut self,
+        expr_id: ExprId,
+    ) -> Result<Rc<HashMap<Spanned<StrId>, ExprId>>> {
+        self.get_fields_(expr_id)
+    }
+
+    /// Evaluates an expression and asserts that it is null
+    pub fn get_null(&mut self, expr_id: ExprId) -> Result {
+        self.get_null_(expr_id)
+    }
+
+    /// Evaluates an expression, asserts that it is a number, and returns it
+    pub fn get_number(&mut self, expr_id: ExprId) -> Result<Rc<BigRational>> {
+        self.get_number_(expr_id)
+    }
+
+    /// Evaluates an expression, asserts that it is a string, and returns it
+    pub fn get_string(&mut self, expr_id: ExprId) -> Result<StrId> {
+        self.get_string_(expr_id)
+    }
+
+    /// Retrieves a field from a map or a list
+    ///
+    /// `selector` should evaluate to a string or a number depending on the type of `expr_id`.
+    ///
+    /// If the field is not present in `expr_id`, an error is returned.
     pub fn get_field(&mut self, expr_id: ExprId, selector: ExprId) -> Result<ExprId> {
         self.get_field_int(expr_id, selector)
     }
 
+    /// Retrieves an optional field from a map or a list
+    ///
+    /// `selector` should evaluate to a string or a number depending on the type of `expr_id`.
+    ///
+    /// If the field is not present in `expr_id`, `None` is returned.
     pub fn get_opt_field(
         &mut self,
         expr_id: ExprId,
@@ -181,14 +206,25 @@ impl Elang {
         self.get_opt_field_(expr_id, selector)
     }
 
-    pub fn get_fields(
-        &mut self,
-        expr_id: ExprId,
-    ) -> Result<Rc<HashMap<Spanned<StrId>, ExprId>>> {
-        self.get_fields_(expr_id)
-    }
-
+    /// Retrieves an expression as a value
+    ///
+    /// This function recursively resolves the expression, asserts that it doesn't resolve to a
+    /// function, and converts it into a `Value`.
     pub fn get_value(&mut self, expr_id: ExprId) -> Result<Value> {
         self.get_value_(expr_id)
+    }
+
+    /// Adds a value as an expression
+    pub fn add_value(&mut self, value: Value) -> ExprId {
+        self.add_value_(value)
+    }
+
+    /// Creates a new error originating from an expression
+    ///
+    /// This function traverses `expr_id` as long as it is `Resolved`, adding each step as context
+    /// to the error. The context is sorted inside-out. The span of the error is the span of the
+    /// first non-`Resolved` expression.
+    pub fn error(&self, expr_id: ExprId, error: ErrorType) -> Error {
+        self.perror(expr_id, error)
     }
 }

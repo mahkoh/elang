@@ -242,9 +242,9 @@ impl Elang {
             ExprType::Null => ExprType::Null,
             ExprType::Resolved { ident, dest } => ExprType::Resolved { ident, dest },
             ExprType::Fn {
-                func: FnType::BuiltIn { ref func },
+                func: FnType::Native { ref func },
             } => ExprType::Fn {
-                func: FnType::BuiltIn { func: func.clone() },
+                func: FnType::Native { func: func.clone() },
             },
             ExprType::Ident { name } => ExprType::Ident { name },
             ExprType::List { ref elements } => {
@@ -353,11 +353,11 @@ impl Elang {
         new!(rv)
     }
 
-    pub(crate) fn error2<T>(&mut self, eid: ExprId, error: ErrorType) -> Result<T> {
-        Err(self.error(eid, error))
+    pub(crate) fn eerror<T>(&mut self, eid: ExprId, error: ErrorType) -> Result<T> {
+        Err(self.perror(eid, error))
     }
 
-    pub fn error(&self, mut eid: ExprId, error: ErrorType) -> Error {
+    pub(crate) fn perror(&self, mut eid: ExprId, error: ErrorType) -> Error {
         let mut ctx = vec![];
         let mut span;
         loop {
@@ -411,10 +411,10 @@ impl Elang {
                 Value::Map(r)
             }
             _ => {
-                return self.error2(
+                return self.eerror(
                     eid,
-                    ErrorType::UnexpectedExprKind(
-                        &[
+                    ErrorType::UnexpectedExprKind {
+                        expected: &[
                             ExprKind::Number,
                             ExprKind::Bool,
                             ExprKind::Null,
@@ -422,12 +422,38 @@ impl Elang {
                             ExprKind::List,
                             ExprKind::Map,
                         ],
-                        expr.kind(),
-                    ),
+                        encountered: expr.kind(),
+                    },
                 );
             }
         };
         Ok(val)
+    }
+
+    pub(crate) fn add_value_(&mut self, value: Value) -> ExprId {
+        let et = match value {
+            Value::Bool(b) => ExprType::Bool {val: b},
+            Value::List(l) => {
+                let mut list = vec!();
+                for v in l.into_vec().into_iter() {
+                    list.push(self.add_value_(v));
+                }
+                ExprType::List { elements: list.into_boxed_slice().into() }
+            }
+            Value::Map(m) => {
+                let mut map = HashMap::new();
+                for (k, v) in m.into_iter() {
+                    let v = self.add_value_(v);
+                    map.insert(Span::built_in().span(self.store.add_str(k)), v);
+                }
+                map.shrink_to_fit();
+                ExprType::Map { fields: Rc::new(map), recursive: false }
+            },
+            Value::Null => ExprType::Null,
+            Value::Number(n) => ExprType::Number {val: Rc::new(n)},
+            Value::String(s) => ExprType::String {content: self.store.add_str(s) }
+        };
+        self.store.add_expr(Span::built_in(), et)
     }
 
 
@@ -446,7 +472,7 @@ impl Elang {
                     self.store.add_expr(
                         Span::built_in(),
                         ExprType::Fn {
-                            func: FnType::BuiltIn { func: funcs::$func() },
+                            func: FnType::Native { func: funcs::$func() },
                         },
                     ),
                 );

@@ -12,7 +12,10 @@ macro_rules! next_t {
             t @ Spanned { val: $pat, .. } => Ok(t),
             t => $slf.error(
                 t.span,
-                ErrorType::UnexpectedToken(TokenAlternative::List(&[$ty]), t.kind()),
+                ErrorType::UnexpectedToken {
+                    expected: TokenAlternative::List { candidates: &[$ty] },
+                    encountered: t.kind(),
+                },
             ),
         }
     };
@@ -70,10 +73,10 @@ impl TokenStream {
             Token::Ident(id) => Ok((t, id)),
             _ => self.error(
                 t.span,
-                ErrorType::UnexpectedToken(
-                    TokenAlternative::List(&[TokenKind::Ident]),
-                    t.kind(),
-                ),
+                ErrorType::UnexpectedToken {
+                    expected: TokenAlternative::List { candidates: &[TokenKind::Ident] },
+                    encountered: t.kind(),
+                },
             ),
         }
     }

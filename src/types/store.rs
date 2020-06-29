@@ -11,12 +11,18 @@ use std::{
     rc::Rc,
 };
 
+/// Trait for types that can be interned
+///
+/// The `into_bytes` and `as_bytes` methods must return the same slice of bytes.
 pub trait Intern {
+    /// Returns the bytes to be interned
     fn as_bytes(&self) -> &[u8];
+
+    /// Returns the bytes to be interned
     fn into_bytes(self) -> Rc<[u8]>;
 }
 
-/// A string interned in an interned.
+/// The id of a string stored in an elang engine
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct StrId(u32);
 

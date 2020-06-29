@@ -19,9 +19,9 @@ impl Elang {
         let val = res.val.borrow();
         match *val {
             ExprType::Bool { val } => Ok(val),
-            _ => self.error2(
+            _ => self.eerror(
                 expr,
-                ErrorType::UnexpectedExprKind(&[ExprKind::Bool], val.kind()),
+                ErrorType::UnexpectedExprKind { expected: &[ExprKind::Bool], encountered: val.kind() },
             ),
         }
     }
@@ -31,9 +31,9 @@ impl Elang {
         let val = res.val.borrow();
         match *val {
             ExprType::String { content } => Ok(content),
-            _ => self.error2(
+            _ => self.eerror(
                 expr,
-                ErrorType::UnexpectedExprKind(&[ExprKind::String], val.kind()),
+                ErrorType::UnexpectedExprKind { expected: &[ExprKind::String], encountered: val.kind() },
             ),
         }
     }
@@ -43,9 +43,21 @@ impl Elang {
         let val = res.val.borrow();
         match *val {
             ExprType::Number { ref val } => Ok(val.clone()),
-            _ => self.error2(
+            _ => self.eerror(
                 expr,
-                ErrorType::UnexpectedExprKind(&[ExprKind::Number], val.kind()),
+                ErrorType::UnexpectedExprKind { expected: &[ExprKind::Number], encountered: val.kind() },
+            ),
+        }
+    }
+
+    pub(crate) fn get_null_(&mut self, expr_id: ExprId) -> Result {
+        let res = self.resolve_(expr_id)?;
+        let val = res.val.borrow();
+        match *val {
+            ExprType::Null => Ok(()),
+            _ => self.eerror(
+                expr_id,
+                ErrorType::UnexpectedExprKind { expected: &[ExprKind::Null], encountered: val.kind() },
             ),
         }
     }
@@ -55,9 +67,9 @@ impl Elang {
         let val = res.val.borrow();
         match *val {
             ExprType::List { ref elements } => Ok(elements.clone()),
-            _ => self.error2(
+            _ => self.eerror(
                 expr,
-                ErrorType::UnexpectedExprKind(&[ExprKind::List], val.kind()),
+                ErrorType::UnexpectedExprKind { expected: &[ExprKind::List], encountered: val.kind() },
             ),
         }
     }
@@ -76,11 +88,11 @@ impl Elang {
         let sel = self.resolve_(selector).unwrap();
         let sel = sel.val.borrow();
 
-        self.error2(
+        self.eerror(
             expr,
             match *sel {
-                ExprType::Ident { name } => ErrorType::MissingMapField(name),
-                ExprType::Number { ref val } => ErrorType::MissingListField(val.clone()),
+                ExprType::Ident { name } => ErrorType::MissingMapField { field_name: name },
+                ExprType::Number { ref val } => ErrorType::MissingListField { index: val.clone() },
                 _ => unreachable!(),
             },
         )
@@ -117,12 +129,12 @@ impl Elang {
                 match *sel_val {
                     ExprType::String { .. } | ExprType::Number { .. } => {}
                     _ => {
-                        return self.error2(
+                        return self.eerror(
                             sel_,
-                            ErrorType::UnexpectedExprKind(
-                                &[ExprKind::String, ExprKind::Number],
-                                sel_val.kind(),
-                            ),
+                            ErrorType::UnexpectedExprKind {
+                                expected: &[ExprKind::String, ExprKind::Number],
+                                encountered: sel_val.kind(),
+                            },
                         );
                     }
                 }
@@ -130,16 +142,16 @@ impl Elang {
                     ExprType::Map { .. } => (&[ExprKind::String], ExprKind::Map),
                     ExprType::List { .. } => (&[ExprKind::Number], ExprKind::List),
                     _ => {
-                        return self.error2(
+                        return self.eerror(
                             base_,
-                            ErrorType::UnexpectedExprKind(
-                                &[ExprKind::Map, ExprKind::List],
-                                base_val.kind(),
-                            ),
+                            ErrorType::UnexpectedExprKind {
+                                expected: &[ExprKind::Map, ExprKind::List],
+                                encountered: base_val.kind(),
+                            },
                         )
                     }
                 };
-                self.error2(sel_, ErrorType::UnexpectedExprKind(et, sel_val.kind()))
+                self.eerror(sel_, ErrorType::UnexpectedExprKind { expected: et, encountered: sel_val.kind() })
                     .ctx(ErrorContext::EvalOtherExprType(base_, ot))
             }
         }
@@ -153,21 +165,21 @@ impl Elang {
         let val = res.val.borrow();
         match *val {
             ExprType::Map { ref fields, .. } => Ok(fields.clone()),
-            _ => self.error2(
+            _ => self.eerror(
                 expr,
-                ErrorType::UnexpectedExprKind(&[ExprKind::Map], val.kind()),
+                ErrorType::UnexpectedExprKind { expected: &[ExprKind::Map], encountered: val.kind() },
             ),
         }
     }
 
-    pub(crate) fn get_func(&mut self, expr: ExprId) -> Result<FnType> {
+    pub(crate) fn get_fn_(&mut self, expr: ExprId) -> Result<FnType> {
         let res = self.resolve_(expr)?;
         let val = res.val.borrow();
         match *val {
             ExprType::Fn { ref func } => Ok(func.clone()),
-            _ => self.error2(
+            _ => self.eerror(
                 expr,
-                ErrorType::UnexpectedExprKind(&[ExprKind::Fn], val.kind()),
+                ErrorType::UnexpectedExprKind { expected: &[ExprKind::Fn], encountered: val.kind() },
             ),
         }
     }
@@ -177,9 +189,9 @@ impl Elang {
         let val = e.val.borrow();
         match *val {
             ExprType::Path { ref path } => Ok(path.clone()),
-            _ => self.error2(
+            _ => self.eerror(
                 expr,
-                ErrorType::UnexpectedExprKind(&[ExprKind::Path], val.kind()),
+                ErrorType::UnexpectedExprKind { expected: &[ExprKind::Path], encountered: val.kind() },
             ),
         }
     }

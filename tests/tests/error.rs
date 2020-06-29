@@ -24,7 +24,7 @@ impl ErrorDiag {
         if lo.is_some() {
             panic!("multiple errors");
         }
-        *lo = Some(message.span.lo());
+        *lo = Some(message.span().lo());
         self.td.handle(e, &message, |_| format!(""))
     }
 }

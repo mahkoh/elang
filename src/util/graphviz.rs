@@ -282,7 +282,7 @@ fn print_tree_<W: Write>(
             pt!(body)
         }
         ExprType::Fn {
-            func: FnType::BuiltIn { .. },
+            func: FnType::Native { .. },
         } => write!(w, "{} [shape=\"box\", label=\"built-in fn\"];", *id),
     }
 }
