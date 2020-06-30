@@ -5,12 +5,12 @@ use crate::types::store::Store;
 pub use crate::{
     diag::Diagnostic,
     types::{
-        diagnostic::{Error, ErrorContext, ErrorType, TokenAlternative},
+        error::{Error, ErrorContext, ErrorType, TokenAlternative},
         result::Result,
         span::{Span, Spanned},
-        store::{StrId, Intern},
+        store::{Intern, StrId},
         token::TokenKind,
-        tree::{NativeFn, Expr, ExprId, ExprKind, ExprType, FnParam, FnType},
+        tree::{Expr, ExprId, ExprKind, ExprType, FnParam, FnType, NativeFn},
         value::Value,
     },
 };
@@ -77,7 +77,7 @@ impl Elang {
                 span: Span::built_in(),
                 error: ErrorType::SpanOverflow,
                 context: vec![],
-            })
+            });
         }
         let tokens = lexer::lex(lo, &src, &mut self.store)?;
         parser::parse(&mut self.store, tokens)

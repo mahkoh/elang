@@ -1,4 +1,4 @@
-use crate::{types::diagnostic::ErrorContext, Error};
+use crate::{types::error::ErrorContext, Error};
 
 /// The elang result type
 pub type Result<T = ()> = std::result::Result<T, Error>;

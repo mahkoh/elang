@@ -312,9 +312,7 @@ impl ExprType {
 #[derive(Clone)]
 pub enum FnParam {
     /// `a: body`
-    Ident {
-        param_name: StrId,
-    },
+    Ident { param_name: StrId },
     /// `a @ { b, c ? e }: body`
     Pat {
         param_name: Option<Spanned<StrId>>,
@@ -341,9 +339,7 @@ where
 #[derive(Clone)]
 pub enum FnType {
     /// A function written in Rust
-    Native {
-        func: Rc<dyn NativeFn>,
-    },
+    Native { func: Rc<dyn NativeFn> },
     /// A function written in elang
     Normal {
         param: Spanned<FnParam>,

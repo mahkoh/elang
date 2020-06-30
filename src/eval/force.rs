@@ -1,6 +1,6 @@
 use crate::{
     types::{
-        diagnostic::{ErrorContext, ErrorType},
+        error::{ErrorContext, ErrorType},
         result::{Result, ResultUtil},
         scope::Scope,
         span::Span,
@@ -109,14 +109,20 @@ impl Elang {
                 drop(borrow);
                 self.force_stringify(&expr)
             }
-            ExprType::Ident { .. } | ExprType::Inherit | ExprType::Path { .. } => {
-                self.eerror(expr.id, ErrorType::CannotEvaluateExpr { kind: borrow.kind() })
-            }
+            ExprType::Ident { .. } | ExprType::Inherit | ExprType::Path { .. } => self
+                .eerror(
+                    expr.id,
+                    ErrorType::CannotEvaluateExpr {
+                        kind: borrow.kind(),
+                    },
+                ),
         }
     }
 
     fn force_int(&mut self, expr: &Expr) -> Result {
-        let ctx = ErrorContext::EvalArithmetic { arithmetic_expr: expr.id };
+        let ctx = ErrorContext::EvalArithmetic {
+            arithmetic_expr: expr.id,
+        };
 
         let num = |slf: &mut Self, v| match slf.get_number_(v) {
             Ok(v) => Ok(v),
@@ -161,7 +167,9 @@ impl Elang {
 
     fn force_bool(&mut self, expr: &Expr) -> Result {
         let mut val = expr.val.borrow_mut();
-        let ctx = ErrorContext::EvalBool { boolean_expr: expr.id };
+        let ctx = ErrorContext::EvalBool {
+            boolean_expr: expr.id,
+        };
 
         fn get<U>(u: Result<U>, ctx: ErrorContext) -> Result<U> {
             match u {
@@ -206,7 +214,9 @@ impl Elang {
 
     fn force_overlay(&mut self, expr: &Expr) -> Result {
         let mut val = expr.val.borrow_mut();
-        let ctx = ErrorContext::EvalOverlay { overlay_expr: expr.id };
+        let ctx = ErrorContext::EvalOverlay {
+            overlay_expr: expr.id,
+        };
 
         let new = if let ExprType::Overlay { lower, upper } = *val {
             let bottom = self.get_fields_(lower).ctx(ctx)?;
@@ -243,10 +253,7 @@ impl Elang {
             }
         };
         *expr.val.borrow_mut() = ExprType::Resolved {
-            ident: Some(
-                self.store
-                    .add_str("std".as_bytes()),
-            ),
+            ident: Some(self.store.add_str("std".as_bytes())),
             dest: std,
         };
         Ok(())
@@ -260,7 +267,10 @@ impl Elang {
             let left = self.resolve_(lhs)?;
             self.force(rhs)?;
             let leftb = left.val.borrow();
-            let ctx2 = |k| ErrorContext::EvalOtherExprKind { other_expr: lhs, other_expr_kind: k };
+            let ctx2 = |k| ErrorContext::EvalOtherExprKind {
+                other_expr: lhs,
+                other_expr_kind: k,
+            };
             match *leftb {
                 ExprType::Number { val: ref left } => {
                     let left = left.clone();
@@ -625,11 +635,12 @@ impl Elang {
                 if !v.is_integer() {
                     return self
                         .eerror(expr.id, ErrorType::CannotStringifyNonInteger)
-                        .ctx(ErrorContext::EvalStringify { stringify_expr: expr.id });
+                        .ctx(ErrorContext::EvalStringify {
+                            stringify_expr: expr.id,
+                        });
                 }
                 let s = format!("{}", v);
-                let content =
-                    self.store.add_str(s);
+                let content = self.store.add_str(s);
                 *val = ExprType::String { content };
             }
             _ => {
@@ -642,7 +653,9 @@ impl Elang {
                             encountered: dst.kind(),
                         },
                     )
-                    .ctx(ErrorContext::EvalStringify { stringify_expr: expr.id });
+                    .ctx(ErrorContext::EvalStringify {
+                        stringify_expr: expr.id,
+                    });
             }
         }
         Ok(())
@@ -680,11 +693,10 @@ impl Elang {
             FnParam::Ident { param_name } => {
                 scope.bind(param_name, arg);
             }
-            FnParam::Pat {
-                param_name,
-                fields,
-            } => {
-                let ctx = ErrorContext::EvalFnPat { fn_pat_span: pat.span };
+            FnParam::Pat { param_name, fields } => {
+                let ctx = ErrorContext::EvalFnPat {
+                    fn_pat_span: pat.span,
+                };
                 let arg_fields = self.get_fields_(arg).ctx(ctx)?;
                 for (&id, &alt) in fields.iter() {
                     if let Some(&val) = arg_fields.get(&id) {
@@ -692,7 +704,12 @@ impl Elang {
                     } else if let Some(alt) = alt {
                         scope.bind(*id, alt);
                     } else {
-                        return self.eerror(arg, ErrorType::MissingArgument { missing_parameter: id });
+                        return self.eerror(
+                            arg,
+                            ErrorType::MissingArgument {
+                                missing_parameter: id,
+                            },
+                        );
                     }
                 }
                 if let Some(param_name) = param_name {
@@ -745,7 +762,9 @@ impl Elang {
     fn force_select(&mut self, expr: &Expr) -> Result {
         let res = {
             let val = expr.val.borrow();
-            let ctx = ErrorContext::EvalSelect { select_expr: expr.id };
+            let ctx = ErrorContext::EvalSelect {
+                select_expr: expr.id,
+            };
 
             let (mut base, path, alt) = match *val {
                 ExprType::Select { base, path, alt } => (base, path, alt),
@@ -773,9 +792,9 @@ impl Elang {
                     let bad_path = self.resolve_(path[0]).unreachable();
                     let bad_path = bad_path.val.borrow();
                     let et = match *bad_path {
-                        ExprType::String { content } => {
-                            ErrorType::MissingMapField { field_name: content }
-                        }
+                        ExprType::String { content } => ErrorType::MissingMapField {
+                            field_name: content,
+                        },
                         ExprType::Number { ref val } => {
                             ErrorType::MissingListField { index: val.clone() }
                         }

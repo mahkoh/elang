@@ -72,7 +72,11 @@ struct Test<'a> {
 }
 
 impl<'a> Test<'a> {
-    fn compare(&mut self, actual: ExprId, expected: &serde_json::Value) -> std::result::Result<(), ErrorCollection> {
+    fn compare(
+        &mut self,
+        actual: ExprId,
+        expected: &serde_json::Value,
+    ) -> std::result::Result<(), ErrorCollection> {
         match expected {
             serde_json::Value::Number(i2) => {
                 let i1 = self.e.get_number(actual)?;
@@ -106,7 +110,7 @@ impl<'a> Test<'a> {
                         ),
                     );
                 }
-                let mut err = vec!();
+                let mut err = vec![];
                 for (l, a) in l.iter().zip(a.iter()) {
                     if let Err(e) = self.compare(*l, a) {
                         err.extend(e.0.into_iter());
@@ -142,7 +146,7 @@ impl<'a> Test<'a> {
                         ),
                     );
                 }
-                let mut err = vec!();
+                let mut err = vec![];
                 for (ks, v) in s2 {
                     let k = self.e.intern(ks.as_str());
                     let res = match s1.get(&k) {
@@ -167,7 +171,15 @@ impl<'a> Test<'a> {
     }
 
     fn error(&self, expr: ExprId, msg: String) -> Result<(), ErrorCollection> {
-        Err(self.e.error(expr, ErrorType::Custom { error: Rc::new(Ce(msg)) }).into())
+        Err(self
+            .e
+            .error(
+                expr,
+                ErrorType::Custom {
+                    error: Rc::new(Ce(msg)),
+                },
+            )
+            .into())
     }
 }
 
@@ -175,14 +187,15 @@ struct ErrorCollection(Vec<Error>);
 
 impl From<Error> for ErrorCollection {
     fn from(e: Error) -> Self {
-        ErrorCollection(vec!(e))
+        ErrorCollection(vec![e])
     }
 }
 
 #[derive(Debug)]
 struct Ce(String);
 
-impl std::error::Error for Ce { }
+impl std::error::Error for Ce {
+}
 
 impl Display for Ce {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {

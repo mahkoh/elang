@@ -1,4 +1,4 @@
-pub mod diagnostic;
+pub mod error;
 pub mod op;
 pub mod result;
 pub mod scope;

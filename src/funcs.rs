@@ -4,7 +4,7 @@ use crate::{
     types::{
         span::Span,
         store::Store,
-        tree::{NativeFn, Expr, ExprType, FnType},
+        tree::{Expr, ExprType, FnType, NativeFn},
     },
     Elang, Error, ErrorType, ExprKind,
 };

@@ -1,5 +1,5 @@
 use crate::types::{
-    diagnostic::{Error, ErrorContext, ErrorType},
+    error::{Error, ErrorContext, ErrorType},
     result::{Result, ResultUtil},
     span::{Span, Spanned},
     store::Store,
@@ -90,7 +90,12 @@ impl<'a, 'b> Lexer<'a, 'b> {
             //
         }
         if let Some(t) = self.braces.pop() {
-            return self.error(t.span, ErrorType::UnmatchedToken { kind: TokenKind::LeftBrace });
+            return self.error(
+                t.span,
+                ErrorType::UnmatchedToken {
+                    kind: TokenKind::LeftBrace,
+                },
+            );
         }
         Ok(())
     }
@@ -183,8 +188,10 @@ impl<'a, 'b> Lexer<'a, 'b> {
                     let ty = match self.braces.pop() {
                         Some(t) => t,
                         _ => {
-                            return self
-                                .error(res.span, ErrorType::UnmatchedToken { kind: t.kind() })
+                            return self.error(
+                                res.span,
+                                ErrorType::UnmatchedToken { kind: t.kind() },
+                            )
                         }
                     };
                     if *ty == BraceType::String {
@@ -348,7 +355,9 @@ impl<'a, 'b> Lexer<'a, 'b> {
                 _ => {
                     return self.error(
                         Span::new(self.lo + esc_pos, self.pos()),
-                        ErrorType::UnknownEscapeSequence { escape_sequence: cur },
+                        ErrorType::UnknownEscapeSequence {
+                            escape_sequence: cur,
+                        },
                     );
                 }
             }
@@ -372,7 +381,7 @@ impl<'a, 'b> Lexer<'a, 'b> {
                             ErrorType::UnexpectedByte {
                                 expected: &[$b],
                                 encountered: b,
-                            }
+                            },
                         )
                     }
                     _ => return self.unexpected_eof(),
@@ -386,7 +395,7 @@ impl<'a, 'b> Lexer<'a, 'b> {
         let mut text = self.chars.text();
         while text.len() > 0 {
             match text[0] {
-                b'0'..=b'9' | b'a'..=b'f' | b'A'..=b'F' => { },
+                b'0'..=b'9' | b'a'..=b'f' | b'A'..=b'F' => {}
                 b'}' => break,
                 d => {
                     let lo = self.pos() + len as u32;
@@ -410,13 +419,18 @@ impl<'a, 'b> Lexer<'a, 'b> {
         let after = self.pos();
         let val = match val.to_u32() {
             Some(v) => v,
-            _ => return self
+            _ => {
+                return self
                     .error(Span::new(before, after), ErrorType::OutOfBoundsLiteral)
+            }
         };
         next!(b'}');
         match std::char::from_u32(val) {
             Some(c) => Ok(c),
-            _ => self.error(Span::new(before, after), ErrorType::InvalidCodePoint { code_point: val }),
+            _ => self.error(
+                Span::new(before, after),
+                ErrorType::InvalidCodePoint { code_point: val },
+            ),
         }
     }
 

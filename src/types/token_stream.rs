@@ -1,5 +1,5 @@
 use crate::types::{
-    diagnostic::{Error, ErrorType, TokenAlternative},
+    error::{Error, ErrorType, TokenAlternative},
     result::Result,
     span::{Span, Spanned},
     store::StrId,
@@ -74,7 +74,9 @@ impl TokenStream {
             _ => self.error(
                 t.span,
                 ErrorType::UnexpectedToken {
-                    expected: TokenAlternative::List { candidates: &[TokenKind::Ident] },
+                    expected: TokenAlternative::List {
+                        candidates: &[TokenKind::Ident],
+                    },
                     encountered: t.kind(),
                 },
             ),

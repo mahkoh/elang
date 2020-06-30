@@ -3,7 +3,7 @@ use crate::{
     ExprId, Spanned,
 };
 use num_rational::BigRational;
-use std::{fmt::Debug, rc::Rc, mem};
+use std::{fmt::Debug, mem, rc::Rc};
 
 /// An error
 #[derive(Debug)]
@@ -19,7 +19,7 @@ impl Error {
         Error {
             span,
             error: ty,
-            context: vec!(),
+            context: vec![],
         }
     }
 
@@ -55,103 +55,57 @@ impl Error {
 #[non_exhaustive]
 pub enum ErrorContext {
     /// The error occurred while parsing a string
-    ParseString {
-        start: u32,
-    },
+    ParseString { start: u32 },
     /// The error occurred while parsing a unicode escape sequence
-    ParseUnicodeEscape {
-        start: u32,
-    },
+    ParseUnicodeEscape { start: u32 },
     /// The error occurred while parsing a test expression
-    ParseTest {
-        start: u32,
-    },
+    ParseTest { start: u32 },
     /// The error occurred while parsing a select expression
-    ParseSelect {
-        start: u32,
-    },
+    ParseSelect { start: u32 },
     /// The error occurred while parsing a parenthesized expression
-    ParseParenthesized {
-        start: u32,
-    },
+    ParseParenthesized { start: u32 },
     /// The error occurred while parsing a function header
-    ParseFnHeader {
-        start: u32,
-    },
+    ParseFnHeader { start: u32 },
     /// The error occurred while parsing a function pattern
-    ParseFnPattern {
-        start: u32,
-    },
+    ParseFnPattern { start: u32 },
     /// The error occurred while parsing a let expression
-    ParseLet {
-        start: u32,
-    },
+    ParseLet { start: u32 },
     /// The error occurred while parsing a map field
-    ParseField {
-        start: u32,
-    },
+    ParseField { start: u32 },
     /// The error occurred while parsing a conditional expression
-    ParseCond {
-        start: u32,
-    },
+    ParseCond { start: u32 },
     /// The error occurred while parsing a list
-    ParseList {
-        start: u32,
-    },
+    ParseList { start: u32 },
     /// The error occurred while parsing a map
-    ParseMap {
-        start: u32,
-    },
+    ParseMap { start: u32 },
     /// The error occurred while parsing an inherit map field
-    ParseInherit {
-        start: u32,
-    },
+    ParseInherit { start: u32 },
     /// The error occurred while evaluating an expression that resolved to another
     /// expression
-    EvalResolved {
-        pointer: ExprId,
-    },
+    EvalResolved { pointer: ExprId },
     /// The error occurred while evaluating an arithmetic expression
-    EvalArithmetic {
-        arithmetic_expr: ExprId,
-    },
+    EvalArithmetic { arithmetic_expr: ExprId },
     /// The error occurred while evaluating a boolean expression
-    EvalBool {
-        boolean_expr: ExprId,
-    },
+    EvalBool { boolean_expr: ExprId },
     /// The error occurred while evaluating an overlay expression
-    EvalOverlay {
-        overlay_expr: ExprId,
-    },
+    EvalOverlay { overlay_expr: ExprId },
     /// The error occurred while evaluating an add expression
-    EvalAdd {
-        add_expr: ExprId,
-    },
+    EvalAdd { add_expr: ExprId },
     /// The error occurred while evaluating a conditional expression
-    EvalCond {
-        cond_expr: ExprId,
-    },
+    EvalCond { cond_expr: ExprId },
     /// The error occurred while evaluating a string interpolation
-    EvalStringify {
-        stringify_expr: ExprId,
-    },
+    EvalStringify { stringify_expr: ExprId },
     /// The error occurred while evaluating a function application
-    EvalApl {
-        apl_expr: ExprId,
-    },
+    EvalApl { apl_expr: ExprId },
     /// The error occurred while evaluating a select expression
-    EvalSelect {
-        select_expr: ExprId,
-    },
+    EvalSelect { select_expr: ExprId },
     /// The error occurred because another expression evaluated to an incompatible type
     EvalOtherExprKind {
         other_expr: ExprId,
         other_expr_kind: ExprKind,
     },
     /// The error occurred while trying to match a function pattern
-    EvalFnPat {
-        fn_pat_span: Span,
-    },
+    EvalFnPat { fn_pat_span: Span },
 }
 
 /// The type of an error
@@ -169,26 +123,18 @@ pub enum ErrorType {
     OutOfBoundsLiteral,
     /// During parsing of a number literal, a character in the range 0..=9 | a..=z | A..=Z was
     /// encountered which is not valid for the base of the literal
-    InvalidDigit {
-        digit: u8,
-    },
+    InvalidDigit { digit: u8 },
     /// During parsing of a number literal with an explicit base, no digits were encountered after
     /// the base specifier
     EmptyNumberLiteral,
     /// During lexing, a byte was encountered that cannot be the start of any token
-    InvalidByteForTokenStart {
-        byte: u8,
-    },
+    InvalidByteForTokenStart { byte: u8 },
     /// During parsing of a unicode escape, the provided code point is empty
     MissingCodePoint,
     /// During parsing of a unicode escape, the provided code point is not valid
-    InvalidCodePoint {
-        code_point: u32,
-    },
+    InvalidCodePoint { code_point: u32 },
     /// During parsing of a string, an invalid escape code was encountered
-    UnknownEscapeSequence {
-        escape_sequence: u8,
-    },
+    UnknownEscapeSequence { escape_sequence: u8 },
     /// During parsing of a `let`, a `set`, or a function header, the same identifier was declared
     /// multiple times
     DuplicateIdentifier {
@@ -202,52 +148,36 @@ pub enum ErrorType {
     /// During string interpolation, a number to be interpolated was not an integer
     CannotStringifyNonInteger,
     /// An attempt was made to select a field from a map but the map has not such field
-    MissingMapField {
-        field_name: StrId,
-    },
+    MissingMapField { field_name: StrId },
     /// An attempt was made to select index into a list but the index was out of bounds
-    MissingListField {
-        index: Rc<BigRational>,
-    },
+    MissingListField { index: Rc<BigRational> },
     /// During evaluation, an expression was encountered that must be evaluated before itself
-    InfiniteRecursion {
-        expr_id: ExprId,
-    },
+    InfiniteRecursion { expr_id: ExprId },
     /// During evaluation, an expression was encountered whose kind cannot be evaluated
-    CannotEvaluateExpr {
-        kind: ExprKind,
-    },
+    CannotEvaluateExpr { kind: ExprKind },
     /// During evaluation, a division by zero was attempted
     DivideByZero,
     /// During evaluation of a function application, the argument did not contain of the fields
     /// required by the function pattern
-    MissingArgument {
-        missing_parameter: Spanned<StrId>,
-    },
+    MissingArgument { missing_parameter: Spanned<StrId> },
     /// The provided source code is too large to be parsed
     SpanOverflow,
     /// An assertion failed
-    AssertionFailed {
-        msg: StrId,
-    },
+    AssertionFailed { msg: StrId },
     /// A custom error generated by an embedder-defined native function
     Custom {
         error: Rc<dyn std::error::Error + 'static>,
     },
     /// During parsing, a token was encountered that can only appear as a pair (e.g. `{`, `}`) but
     /// it appeared unpaired
-    UnmatchedToken {
-        kind: TokenKind,
-    },
+    UnmatchedToken { kind: TokenKind },
     /// During parsing, an unexpected byte was encountered
     UnexpectedByte {
         expected: &'static [u8],
         encountered: u8,
     },
     /// During evaluation, an error was raised via `std.raise`
-    Raised {
-        msg: StrId,
-    },
+    Raised { msg: StrId },
 }
 
 /// An alternative to a token
@@ -262,7 +192,5 @@ pub enum TokenAlternative {
     /// The start of an expression
     StartOfExpression,
     /// A list of tokens
-    List {
-        candidates: &'static [TokenKind],
-    }
+    List { candidates: &'static [TokenKind] },
 }

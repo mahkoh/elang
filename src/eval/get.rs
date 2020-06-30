@@ -6,7 +6,7 @@ use crate::types::{
 use std::rc::Rc;
 
 use crate::{
-    types::{diagnostic::ErrorType, result::ResultUtil},
+    types::{error::ErrorType, result::ResultUtil},
     Elang, ErrorContext, Spanned,
 };
 use num_rational::BigRational;
@@ -21,7 +21,10 @@ impl Elang {
             ExprType::Bool { val } => Ok(val),
             _ => self.eerror(
                 expr,
-                ErrorType::UnexpectedExprKind { expected: &[ExprKind::Bool], encountered: val.kind() },
+                ErrorType::UnexpectedExprKind {
+                    expected: &[ExprKind::Bool],
+                    encountered: val.kind(),
+                },
             ),
         }
     }
@@ -33,7 +36,10 @@ impl Elang {
             ExprType::String { content } => Ok(content),
             _ => self.eerror(
                 expr,
-                ErrorType::UnexpectedExprKind { expected: &[ExprKind::String], encountered: val.kind() },
+                ErrorType::UnexpectedExprKind {
+                    expected: &[ExprKind::String],
+                    encountered: val.kind(),
+                },
             ),
         }
     }
@@ -45,7 +51,10 @@ impl Elang {
             ExprType::Number { ref val } => Ok(val.clone()),
             _ => self.eerror(
                 expr,
-                ErrorType::UnexpectedExprKind { expected: &[ExprKind::Number], encountered: val.kind() },
+                ErrorType::UnexpectedExprKind {
+                    expected: &[ExprKind::Number],
+                    encountered: val.kind(),
+                },
             ),
         }
     }
@@ -57,7 +66,10 @@ impl Elang {
             ExprType::Null => Ok(()),
             _ => self.eerror(
                 expr_id,
-                ErrorType::UnexpectedExprKind { expected: &[ExprKind::Null], encountered: val.kind() },
+                ErrorType::UnexpectedExprKind {
+                    expected: &[ExprKind::Null],
+                    encountered: val.kind(),
+                },
             ),
         }
     }
@@ -69,7 +81,10 @@ impl Elang {
             ExprType::List { ref elements } => Ok(elements.clone()),
             _ => self.eerror(
                 expr,
-                ErrorType::UnexpectedExprKind { expected: &[ExprKind::List], encountered: val.kind() },
+                ErrorType::UnexpectedExprKind {
+                    expected: &[ExprKind::List],
+                    encountered: val.kind(),
+                },
             ),
         }
     }
@@ -91,8 +106,12 @@ impl Elang {
         self.eerror(
             expr,
             match *sel {
-                ExprType::Ident { name } => ErrorType::MissingMapField { field_name: name },
-                ExprType::Number { ref val } => ErrorType::MissingListField { index: val.clone() },
+                ExprType::Ident { name } => {
+                    ErrorType::MissingMapField { field_name: name }
+                }
+                ExprType::Number { ref val } => {
+                    ErrorType::MissingListField { index: val.clone() }
+                }
                 _ => unreachable!(),
             },
         )
@@ -151,11 +170,17 @@ impl Elang {
                         )
                     }
                 };
-                self.eerror(sel_, ErrorType::UnexpectedExprKind { expected: et, encountered: sel_val.kind() })
-                    .ctx(ErrorContext::EvalOtherExprKind {
-                        other_expr: base_,
-                        other_expr_kind: ot,
-                    })
+                self.eerror(
+                    sel_,
+                    ErrorType::UnexpectedExprKind {
+                        expected: et,
+                        encountered: sel_val.kind(),
+                    },
+                )
+                .ctx(ErrorContext::EvalOtherExprKind {
+                    other_expr: base_,
+                    other_expr_kind: ot,
+                })
             }
         }
     }
@@ -170,7 +195,10 @@ impl Elang {
             ExprType::Map { ref fields, .. } => Ok(fields.clone()),
             _ => self.eerror(
                 expr,
-                ErrorType::UnexpectedExprKind { expected: &[ExprKind::Map], encountered: val.kind() },
+                ErrorType::UnexpectedExprKind {
+                    expected: &[ExprKind::Map],
+                    encountered: val.kind(),
+                },
             ),
         }
     }
@@ -182,7 +210,10 @@ impl Elang {
             ExprType::Fn { ref func } => Ok(func.clone()),
             _ => self.eerror(
                 expr,
-                ErrorType::UnexpectedExprKind { expected: &[ExprKind::Fn], encountered: val.kind() },
+                ErrorType::UnexpectedExprKind {
+                    expected: &[ExprKind::Fn],
+                    encountered: val.kind(),
+                },
             ),
         }
     }
@@ -194,7 +225,10 @@ impl Elang {
             ExprType::Path { ref path } => Ok(path.clone()),
             _ => self.eerror(
                 expr,
-                ErrorType::UnexpectedExprKind { expected: &[ExprKind::Path], encountered: val.kind() },
+                ErrorType::UnexpectedExprKind {
+                    expected: &[ExprKind::Path],
+                    encountered: val.kind(),
+                },
             ),
         }
     }

@@ -1,10 +1,14 @@
-use crate::{types::{
-    diagnostic::{ErrorContext, ErrorType},
-    result::Result,
-    span::{Span, Spanned},
-    tree::{Expr, ExprId, ExprType, FnParam, FnType},
-    value::Value,
-}, Elang, Error, ExprKind, funcs};
+use crate::{
+    funcs,
+    types::{
+        error::{ErrorContext, ErrorType},
+        result::Result,
+        span::{Span, Spanned},
+        tree::{Expr, ExprId, ExprType, FnParam, FnType},
+        value::Value,
+    },
+    Elang, Error, ExprKind,
+};
 use std::{collections::HashMap, rc::Rc};
 
 mod force;
@@ -432,13 +436,15 @@ impl Elang {
 
     pub(crate) fn add_value_(&mut self, value: Value) -> ExprId {
         let et = match value {
-            Value::Bool(b) => ExprType::Bool {val: b},
+            Value::Bool(b) => ExprType::Bool { val: b },
             Value::List(l) => {
-                let mut list = vec!();
+                let mut list = vec![];
                 for v in l.into_vec().into_iter() {
                     list.push(self.add_value_(v));
                 }
-                ExprType::List { elements: list.into_boxed_slice().into() }
+                ExprType::List {
+                    elements: list.into_boxed_slice().into(),
+                }
             }
             Value::Map(m) => {
                 let mut map = HashMap::new();
@@ -447,15 +453,19 @@ impl Elang {
                     map.insert(Span::built_in().span(self.store.add_str(k)), v);
                 }
                 map.shrink_to_fit();
-                ExprType::Map { fields: Rc::new(map), recursive: false }
-            },
+                ExprType::Map {
+                    fields: Rc::new(map),
+                    recursive: false,
+                }
+            }
             Value::Null => ExprType::Null,
-            Value::Number(n) => ExprType::Number {val: Rc::new(n)},
-            Value::String(s) => ExprType::String {content: self.store.add_str(s) }
+            Value::Number(n) => ExprType::Number { val: Rc::new(n) },
+            Value::String(s) => ExprType::String {
+                content: self.store.add_str(s),
+            },
         };
         self.store.add_expr(Span::built_in(), et)
     }
-
 
     fn create_std(&mut self) -> ExprId {
         let mut map = HashMap::new();
@@ -466,17 +476,17 @@ impl Elang {
             };
             ($name:expr, $func:ident) => {
                 map.insert(
-                    Span::built_in().span(
-                        self.store.add_str($name.as_bytes()),
-                    ),
+                    Span::built_in().span(self.store.add_str($name.as_bytes())),
                     self.store.add_expr(
                         Span::built_in(),
                         ExprType::Fn {
-                            func: FnType::Native { func: funcs::$func() },
+                            func: FnType::Native {
+                                func: funcs::$func(),
+                            },
                         },
                     ),
                 );
-            }
+            };
         }
 
         add_fn!(is_number);

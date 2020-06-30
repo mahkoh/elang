@@ -1,5 +1,5 @@
 use crate::types::{
-    diagnostic::{Error, ErrorContext, ErrorType, TokenAlternative},
+    error::{Error, ErrorContext, ErrorType, TokenAlternative},
     op::Op,
     result::{Result, ResultUtil},
     span::{Span, Spanned},
@@ -129,9 +129,9 @@ impl<'a> Parser<'a> {
 
                     stack.next_op(&mut self.store, op);
                     let expr = stack.pop_expr();
-                    let path = self
-                        .parse_attr_path()
-                        .ctx(ErrorContext::ParseTest { start: next.span.lo })?;
+                    let path = self.parse_attr_path().ctx(ErrorContext::ParseTest {
+                        start: next.span.lo,
+                    })?;
                     let span = Span::new(expr.span.lo, path.span.hi);
                     let expr = self.spanned(
                         span,
@@ -156,9 +156,9 @@ impl<'a> Parser<'a> {
 
                     stack.next_op(&mut self.store, op);
                     let expr = stack.pop_expr();
-                    let path = self
-                        .parse_attr_path()
-                        .ctx(ErrorContext::ParseSelect { start: next.span.lo })?;
+                    let path = self.parse_attr_path().ctx(ErrorContext::ParseSelect {
+                        start: next.span.lo,
+                    })?;
                     let (hi, alt) = match self.tokens.try_peek(0) {
                         Some(Spanned { val: Token::Or, .. }) => {
                             self.tokens.skip(1);
@@ -335,7 +335,9 @@ impl<'a> Parser<'a> {
             }
             Token::LeftParen => {
                 let expr = self.parse_expr()?;
-                let ctx = ErrorContext::ParseParenthesized { start: next.span.lo };
+                let ctx = ErrorContext::ParseParenthesized {
+                    start: next.span.lo,
+                };
                 span.hi = self.tokens.next_right_paren().ctx(ctx)?.span.hi;
                 self.store.get_expr(*expr).val.borrow().clone()
             }
@@ -343,11 +345,13 @@ impl<'a> Parser<'a> {
                 return self.error(
                     next.span,
                     ErrorType::UnexpectedToken {
-                        expected: TokenAlternative::List { candidates: &[
-                            TokenKind::Number,
-                            TokenKind::Ident,
-                            TokenKind::LeftParen,
-                        ]},
+                        expected: TokenAlternative::List {
+                            candidates: &[
+                                TokenKind::Number,
+                                TokenKind::Ident,
+                                TokenKind::LeftParen,
+                            ],
+                        },
                         encountered: next.kind(),
                     },
                 );
@@ -411,7 +415,9 @@ impl<'a> Parser<'a> {
     /// Where the body of the `{ }` is as above.
     fn parse_fn(&mut self) -> Result<SExpr> {
         let first = self.tokens.peek(0).unwrap();
-        let ctx = ErrorContext::ParseFnHeader { start: first.span.lo };
+        let ctx = ErrorContext::ParseFnHeader {
+            start: first.span.lo,
+        };
 
         if let Token::Ident(param_name) = first.val {
             self.tokens.skip(1);
@@ -437,17 +443,16 @@ impl<'a> Parser<'a> {
                 if let Some((&spanned, _)) = fields.get_key_value(&param_name) {
                     return self.error(
                         spanned.span,
-                        ErrorType::DuplicateIdentifier { previous_declaration: first.span.span(param_name) },
+                        ErrorType::DuplicateIdentifier {
+                            previous_declaration: first.span.span(param_name),
+                        },
                     );
                 }
                 self.tokens.next_colon().ctx(ctx)?;
                 let body = self.parse_expr()?;
                 let arg_span = Span::new(first.span.lo, pat_span.hi);
                 let param_name = Some(first.span.span(param_name));
-                let arg = FnParam::Pat {
-                    param_name,
-                    fields,
-                };
+                let arg = FnParam::Pat { param_name, fields };
                 let span = Span::new(first.span.lo, body.span.hi);
                 let expr = ExprType::Fn {
                     func: FnType::Normal {
@@ -501,7 +506,9 @@ impl<'a> Parser<'a> {
         &mut self,
     ) -> Result<(Span, Rc<HashMap<Spanned<StrId>, Option<ExprId>>>)> {
         let opening = self.tokens.next().unwrap();
-        let ctx = ErrorContext::ParseFnPattern { start: opening.span.lo };
+        let ctx = ErrorContext::ParseFnPattern {
+            start: opening.span.lo,
+        };
         let mut vars = HashMap::<_, _>::new();
 
         loop {
@@ -514,10 +521,12 @@ impl<'a> Parser<'a> {
                         .error(
                             ident.span,
                             ErrorType::UnexpectedToken {
-                                expected: TokenAlternative::List { candidates: &[
-                                    TokenKind::Ident,
-                                    TokenKind::RightBrace,
-                                ]},
+                                expected: TokenAlternative::List {
+                                    candidates: &[
+                                        TokenKind::Ident,
+                                        TokenKind::RightBrace,
+                                    ],
+                                },
                                 encountered: ident.kind(),
                             },
                         )
@@ -542,7 +551,12 @@ impl<'a> Parser<'a> {
             match vars.entry(span.span(ident)) {
                 Entry::Occupied(e) => {
                     return self
-                        .error(span, ErrorType::DuplicateIdentifier { previous_declaration: *e.key() })
+                        .error(
+                            span,
+                            ErrorType::DuplicateIdentifier {
+                                previous_declaration: *e.key(),
+                            },
+                        )
                         .ctx(ctx);
                 }
                 Entry::Vacant(e) => e.insert(alt),
@@ -606,7 +620,9 @@ impl<'a> Parser<'a> {
     /// ----
     fn parse_let(&mut self) -> Result<SExpr> {
         let let_ = self.tokens.next().unwrap();
-        let ctx = ErrorContext::ParseLet { start: let_.span.lo };
+        let ctx = ErrorContext::ParseLet {
+            start: let_.span.lo,
+        };
         let mut bindings = HashMap::<_, _>::new();
         loop {
             if self.tokens.peek(0).ctx(ctx)?.val == Token::In {
@@ -614,7 +630,9 @@ impl<'a> Parser<'a> {
                 break;
             }
             let (span, name) = self.tokens.next_ident().ctx(ctx)?;
-            let ictx = ErrorContext::ParseField { start: span.span.lo };
+            let ictx = ErrorContext::ParseField {
+                start: span.span.lo,
+            };
             self.tokens.next_assign().ctx(ictx)?;
             let expr = self.parse_expr()?;
             let next = self.tokens.peek(0).ctx(ctx)?;
@@ -626,10 +644,9 @@ impl<'a> Parser<'a> {
                         .error(
                             next.span,
                             ErrorType::UnexpectedToken {
-                                expected: TokenAlternative::List { candidates: &[
-                                    TokenKind::In,
-                                    TokenKind::Comma,
-                                ]},
+                                expected: TokenAlternative::List {
+                                    candidates: &[TokenKind::In, TokenKind::Comma],
+                                },
                                 encountered: next.kind(),
                             },
                         )
@@ -639,7 +656,12 @@ impl<'a> Parser<'a> {
             match bindings.entry(span.span.span(name)) {
                 Entry::Occupied(e) => {
                     return self
-                        .error(span.span, ErrorType::DuplicateIdentifier { previous_declaration: *e.key() })
+                        .error(
+                            span.span,
+                            ErrorType::DuplicateIdentifier {
+                                previous_declaration: *e.key(),
+                            },
+                        )
                         .ctx(ctx);
                 }
                 Entry::Vacant(e) => e.insert(expr.val),
@@ -709,7 +731,9 @@ impl<'a> Parser<'a> {
     /// The last comma is optional.
     fn parse_list(&mut self) -> Result<SExpr> {
         let start = self.tokens.next().unwrap();
-        let ctx = ErrorContext::ParseList { start: start.span.lo };
+        let ctx = ErrorContext::ParseList {
+            start: start.span.lo,
+        };
         let mut els = Vec::new();
         loop {
             if self.tokens.peek(0).ctx(ctx)?.val == Token::RightBracket {
@@ -725,10 +749,12 @@ impl<'a> Parser<'a> {
                         .error(
                             next.span,
                             ErrorType::UnexpectedToken {
-                                expected: TokenAlternative::List { candidates: &[
-                                    TokenKind::Comma,
-                                    TokenKind::RightBracket,
-                                ]},
+                                expected: TokenAlternative::List {
+                                    candidates: &[
+                                        TokenKind::Comma,
+                                        TokenKind::RightBracket,
+                                    ],
+                                },
                                 encountered: next.kind(),
                             },
                         )
@@ -765,7 +791,9 @@ impl<'a> Parser<'a> {
     /// The last comma is optional.
     fn parse_map(&mut self) -> Result<SExpr> {
         let opening = self.tokens.next().unwrap();
-        let ctx = ErrorContext::ParseMap { start: opening.span.lo };
+        let ctx = ErrorContext::ParseMap {
+            start: opening.span.lo,
+        };
         let rec = match opening.val {
             Token::Rec => {
                 self.tokens.next_left_brace().ctx(ctx)?;
@@ -782,16 +810,18 @@ impl<'a> Parser<'a> {
             let next = self.tokens.next()?;
             match next.val {
                 Token::Ident(ident) => {
-                    self.tokens
-                        .next_assign()
-                        .ctx(ErrorContext::ParseField { start: next.span.lo })?;
+                    self.tokens.next_assign().ctx(ErrorContext::ParseField {
+                        start: next.span.lo,
+                    })?;
                     let expr = self.parse_expr()?;
                     match fields.entry(next.span.span(ident)) {
                         Entry::Occupied(e) => {
                             return self
                                 .error(
                                     next.span,
-                                    ErrorType::DuplicateIdentifier { previous_declaration: *e.key() },
+                                    ErrorType::DuplicateIdentifier {
+                                        previous_declaration: *e.key(),
+                                    },
                                 )
                                 .ctx(ctx);
                         }
@@ -799,10 +829,9 @@ impl<'a> Parser<'a> {
                     };
                 }
                 Token::Inherit => loop {
-                    let el = self
-                        .tokens
-                        .peek(0)
-                        .ctx(ErrorContext::ParseInherit { start: next.span.lo })?;
+                    let el = self.tokens.peek(0).ctx(ErrorContext::ParseInherit {
+                        start: next.span.lo,
+                    })?;
                     match el.val {
                         Token::Comma | Token::RightBrace => break,
                         Token::Ident(ident) => {
@@ -812,7 +841,9 @@ impl<'a> Parser<'a> {
                                     return self
                                         .error(
                                             el.span,
-                                            ErrorType::DuplicateIdentifier { previous_declaration: *e.key() },
+                                            ErrorType::DuplicateIdentifier {
+                                                previous_declaration: *e.key(),
+                                            },
                                         )
                                         .ctx(ctx);
                                 }
@@ -827,15 +858,19 @@ impl<'a> Parser<'a> {
                                 .error(
                                     el.span,
                                     ErrorType::UnexpectedToken {
-                                        expected: TokenAlternative::List { candidates: &[
-                                            TokenKind::Ident,
-                                            TokenKind::Comma,
-                                            TokenKind::RightBrace,
-                                        ]},
+                                        expected: TokenAlternative::List {
+                                            candidates: &[
+                                                TokenKind::Ident,
+                                                TokenKind::Comma,
+                                                TokenKind::RightBrace,
+                                            ],
+                                        },
                                         encountered: el.kind(),
                                     },
                                 )
-                                .ctx(ErrorContext::ParseInherit { start: next.span.lo });
+                                .ctx(ErrorContext::ParseInherit {
+                                    start: next.span.lo,
+                                });
                         }
                     }
                 },
@@ -844,11 +879,13 @@ impl<'a> Parser<'a> {
                         .error(
                             next.span,
                             ErrorType::UnexpectedToken {
-                                expected: TokenAlternative::List { candidates: &[
-                                    TokenKind::Ident,
-                                    TokenKind::Inherit,
-                                    TokenKind::RightBrace,
-                                ]},
+                                expected: TokenAlternative::List {
+                                    candidates: &[
+                                        TokenKind::Ident,
+                                        TokenKind::Inherit,
+                                        TokenKind::RightBrace,
+                                    ],
+                                },
                                 encountered: next.kind(),
                             },
                         )
@@ -865,10 +902,12 @@ impl<'a> Parser<'a> {
                         .error(
                             next.span,
                             ErrorType::UnexpectedToken {
-                                expected: TokenAlternative::List { candidates: &[
-                                    TokenKind::Comma,
-                                    TokenKind::RightBrace,
-                                ]},
+                                expected: TokenAlternative::List {
+                                    candidates: &[
+                                        TokenKind::Comma,
+                                        TokenKind::RightBrace,
+                                    ],
+                                },
                                 encountered: next.kind(),
                             },
                         )

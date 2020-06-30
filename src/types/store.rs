@@ -4,7 +4,7 @@ use crate::types::{
 };
 use std::{
     cell::RefCell,
-    collections::{HashMap},
+    collections::HashMap,
     convert::TryInto,
     fmt,
     fmt::{Debug, Formatter},
