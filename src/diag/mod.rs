@@ -3,6 +3,8 @@ use crate::{
 };
 use std::{fmt::Write, rc::Rc};
 
+mod code_map;
+
 struct Codemap {
     files: Vec<Filemap>,
 }

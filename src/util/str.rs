@@ -12,7 +12,7 @@ impl Utf8Lossy {
         unsafe { &*(bytes as *const [u8] as *const Utf8Lossy) }
     }
 
-    fn chunks(&self) -> Utf8LossyChunksIter<'_> {
+    pub fn chunks(&self) -> Utf8LossyChunksIter<'_> {
         Utf8LossyChunksIter {
             source: &self.bytes,
         }
@@ -46,18 +46,18 @@ fn utf8_char_width(b: u8) -> usize {
 }
 
 /// Iterator over lossy UTF-8 string
-struct Utf8LossyChunksIter<'a> {
+pub struct Utf8LossyChunksIter<'a> {
     source: &'a [u8],
 }
 
 #[derive(PartialEq, Eq, Debug)]
-struct Utf8LossyChunk<'a> {
+pub struct Utf8LossyChunk<'a> {
     /// Sequence of valid chars.
     /// Can be empty between broken UTF-8 chars.
-    valid: &'a str,
+    pub valid: &'a str,
     /// Single broken char, empty if none.
     /// Empty iff iterator item is last.
-    broken: &'a [u8],
+    pub broken: &'a [u8],
 }
 
 impl<'a> Iterator for Utf8LossyChunksIter<'a> {
