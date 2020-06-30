@@ -337,10 +337,7 @@ impl<'a> Parser<'a> {
                 let expr = self.parse_expr()?;
                 let ctx = ErrorContext::ParseParenthesized { start: next.span.lo };
                 span.hi = self.tokens.next_right_paren().ctx(ctx)?.span.hi;
-                ExprType::Resolved {
-                    ident: None,
-                    dest: expr.val,
-                }
+                self.store.get_expr(*expr).val.borrow().clone()
             }
             _ => {
                 return self.error(

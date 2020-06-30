@@ -230,11 +230,11 @@ impl Elang {
             | ExprType::Overlay { .. }
             | ExprType::Apl { .. }
             | ExprType::Test { .. }
-            | ExprType::Std
             | ExprType::Cond { .. } => {
                 // handled above
                 unreachable!();
             }
+            ExprType::Std => ExprType::Std,
             ExprType::Inherit => ExprType::Inherit,
             ExprType::String { content } => ExprType::String { content },
             ExprType::Number { ref val } => ExprType::Number { val: val.clone() },
@@ -489,6 +489,8 @@ impl Elang {
         add_fn!("type", ty);
         add_fn!(filter);
         add_fn!(contains);
+        add_fn!(raise);
+        add_fn!(assert);
 
         let e = ExprType::Map {
             fields: Rc::new(map),

@@ -1,5 +1,6 @@
 use crate::{Elang, Error, ErrorContext, ErrorType, Span, TokenAlternative};
 use std::{fmt::Write, rc::Rc};
+use crate::util::str::Utf8Lossy;
 
 struct Codemap {
     files: Vec<Filemap>,
@@ -219,7 +220,7 @@ impl Diagnostic {
             },
             ErrorType::OutOfBoundsLiteral => format!("out-of-bounds literal"),
             ErrorType::InvalidDigit { digit } => format!(
-                "unexpected number suffix {:?}", digit as char
+                "unexpected digit {:?}", digit as char
             ),
             ErrorType::InvalidByteForTokenStart { byte } => format!("expected token, found byte {:?}", byte as char),
             ErrorType::MissingCodePoint => format!("missing code point"),
@@ -273,7 +274,10 @@ impl Diagnostic {
                 return;
             }
             ErrorType::SpanOverflow => format!("span overflow"),
-            ErrorType::AssertionFailed => format!("assertion failed"),
+            ErrorType::AssertionFailed { msg } => {
+                let msg = e.store.get_str(msg);
+                format!("assertion failed: {}", Utf8Lossy::from_bytes(&msg))
+            },
             ErrorType::EmptyNumberLiteral => format!("empty number literal"),
             ErrorType::Custom { ref error } => {
                 let custom = &**error;
@@ -297,6 +301,10 @@ impl Diagnostic {
                 };
                 let _ = write!(s, ", got {:?}", encountered as char);
                 s
+            },
+            ErrorType::Raised { msg } => {
+                let msg = e.store.get_str(msg);
+                format!("an error was raised: {}", Utf8Lossy::from_bytes(&msg))
             },
         };
         self.common(msg.span, "error: ", &text);
@@ -332,7 +340,7 @@ impl Diagnostic {
                 ErrorContext::EvalBool { boolean_expr } => (e(boolean_expr), q("boolean expression")),
                 ErrorContext::EvalOverlay { overlay_expr } => (e(overlay_expr), q("overlay expression")),
                 ErrorContext::EvalAdd { add_expr } => (e(add_expr), q("add expression")),
-                ErrorContext::EvalCond { cond_expr } => (e(cond_expr), q("conditional expression")),
+                ErrorContext::EvalCond { cond_expr } => (e(cond_expr), q("condition")),
                 ErrorContext::EvalStringify { stringify_expr } => (e(stringify_expr), q("string interpolation")),
                 ErrorContext::EvalApl { apl_expr } => (e(apl_expr), q("function application")),
                 ErrorContext::EvalSelect { select_expr } => (e(select_expr), q("select expression")),

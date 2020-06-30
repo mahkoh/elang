@@ -35,19 +35,22 @@ pub fn to_list() -> Rc<dyn NativeFn> {
 pub fn assert() -> Rc<dyn NativeFn> {
     let f = move |eval: &mut Elang, cond: Rc<Expr>| {
         if eval.get_bool(cond.id)? {
-            let f = move |eval: &mut Elang, tail: Rc<Expr>| {
-                Ok(ExprType::Resolved {
-                    ident: None,
-                    dest: tail.id,
-                })
+            let f = |_: &mut Elang, _msg: Rc<Expr>| {
+                let f = |_: &mut Elang, expr: Rc<Expr>| {
+                    Ok(ExprType::Resolved {
+                        ident: None,
+                        dest: expr.id,
+                    })
+                };
+                Ok(bi!(f))
             };
             Ok(bi!(f))
         } else {
-            Err(Error {
-                span: cond.span,
-                error: ErrorType::AssertionFailed,
-                context: vec![],
-            })
+            let f = |eval: &mut Elang, msg: Rc<Expr>| {
+                let str = eval.get_string(msg.id)?;
+                Err(eval.error(msg.id, ErrorType::AssertionFailed { msg: str }))
+            };
+            Ok(bi!(f))
         }
     };
     Rc::new(f)
@@ -65,6 +68,14 @@ pub fn contains() -> Rc<dyn NativeFn> {
             Ok(ExprType::Bool { val: false })
         };
         Ok(bi!(f))
+    };
+    Rc::new(f)
+}
+
+pub fn raise() -> Rc<dyn NativeFn> {
+    let f = move |eval: &mut Elang, msg: Rc<Expr>| {
+        let str = eval.get_string(msg.id)?;
+        Err(eval.error(msg.id, ErrorType::Raised { msg: str }))
     };
     Rc::new(f)
 }

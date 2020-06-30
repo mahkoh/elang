@@ -1,0 +1,5 @@
+let
+    f = n: if n == 2 then "" else std.assert (std.is_number n) "n is not a number: \{std.type n}" 1 + n
+                                                               ^ERROR
+in
+    f (f (f (f (f (f 0)))))

@@ -387,7 +387,14 @@ impl<'a, 'b> Lexer<'a, 'b> {
         while text.len() > 0 {
             match text[0] {
                 b'0'..=b'9' | b'a'..=b'f' | b'A'..=b'F' => { },
-                _ => break,
+                b'}' => break,
+                d => {
+                    let lo = self.pos() + len as u32;
+                    return self.error(
+                        Span::new(lo, lo + 1),
+                        ErrorType::InvalidDigit { digit: d },
+                    );
+                }
             }
             len += 1;
             text = &text[1..];

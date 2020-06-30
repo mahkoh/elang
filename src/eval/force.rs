@@ -587,9 +587,9 @@ impl Elang {
 
     fn force_cond(&mut self, expr: &Expr) -> Result {
         let mut val = expr.val.borrow_mut();
-        let ctx = ErrorContext::EvalCond { cond_expr: expr.id };
 
         let dest = if let ExprType::Cond { cond, then, el } = *val {
+            let ctx = ErrorContext::EvalCond { cond_expr: cond };
             if self.get_bool_(cond).ctx(ctx)? {
                 self.force(then)?;
                 then
