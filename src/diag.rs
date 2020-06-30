@@ -223,7 +223,7 @@ impl Diagnostic {
             ),
             ErrorType::InvalidByteForTokenStart { byte } => format!("expected token, found byte {:?}", byte as char),
             ErrorType::MissingCodePoint => format!("missing code point"),
-            ErrorType::InvalidCodePoint { code_point } => format!("invalid code point {}", code_point),
+            ErrorType::InvalidCodePoint { code_point } => format!("invalid code point U+{:X}", code_point),
             ErrorType::UnknownEscapeSequence { escape_sequence } => {
                 format!("unknown escape sequence {:?}", escape_sequence as char)
             }
@@ -308,7 +308,7 @@ impl Diagnostic {
             let s = |s| Span::new(s, s + 1);
             let e = |s| el.span(s);
             let p = |s| format!("while parsing {} starting here", s);
-            let q = |s| format!("while evaluating {}", s);
+            let q = |s| format!("while evaluating this {}", s);
             let (span, txt) = match *ctx {
                 ErrorContext::ParseString { start } => (s(start), p("string")),
                 ErrorContext::ParseUnicodeEscape { start } => {
