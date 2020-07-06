@@ -1,6 +1,7 @@
 use crate::util::str::Utf8Lossy;
 use std::{cell::RefCell, convert::TryInto, rc::Rc};
 use unicode_width::UnicodeWidthChar;
+use crate::Span;
 
 pub struct CodeMap {
     source_units: Vec<SourceUnit>,
@@ -20,10 +21,11 @@ enum SourceUnit_ {
 
 pub struct Lines {
     pub name: Rc<str>,
+    pub start_no: u32,
     pub lines: Box<[Line]>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Line {
     pub lo: u32,
     pub hi: u32,
@@ -31,14 +33,33 @@ pub struct Line {
     pub content: Rc<str>,
 }
 
+impl Line {
+    pub fn mono_offset(&self, lo: u32) -> u32 {
+        let mut o = lo - self.lo;
+        for &(olo, mono_pos) in self.mono_offsets.iter().rev() {
+            if olo <= lo {
+                o = mono_pos + lo - olo;
+                break;
+            }
+        }
+        o
+    }
+}
+
 impl CodeMap {
+    pub fn new() -> Self {
+        Self {
+            source_units: vec!(),
+        }
+    }
+
     pub fn add_source(&mut self, name: &[u8], mut src: Rc<[u8]>) -> Option<u32> {
         if src.last().copied() != Some(b'\n') {
             let mut copy = src.to_vec();
             copy.push(b'\n');
             src = copy.into_boxed_slice().into();
         }
-        let lo = self.source_units.get(0).map(|u| u.hi).unwrap_or(0);
+        let lo = self.source_units.last().map(|u| u.hi).unwrap_or(0);
         let len: u32 = match src.len().try_into() {
             Ok(l) => l,
             _ => return None,
@@ -58,10 +79,10 @@ impl CodeMap {
         Some(lo)
     }
 
-    pub fn get_lines(&self, lo: u32, hi: u32) -> Option<Box<[Line]>> {
+    pub fn get_lines(&self, span: Span) -> Option<Lines> {
         for unit in &self.source_units {
-            if unit.lo <= lo && hi <= unit.hi {
-                return Some(unit.get_lines(lo, hi));
+            if unit.lo <= span.lo && span.hi <= unit.hi {
+                return Some(unit.get_lines(span.lo, span.hi));
             }
         }
         None
@@ -69,30 +90,37 @@ impl CodeMap {
 }
 
 impl SourceUnit {
-    fn get_lines(&self, lo: u32, hi: u32) -> Box<[Line]> {
+    fn get_lines(&self, lo: u32, hi: u32) -> Lines {
         let mut unit = self.unit.borrow_mut();
         let mut lines = unit.process(self.lo);
         let mut iter = lines.iter().enumerate();
+        let start_no;
         loop {
             let (pos, line) = match iter.next() {
                 Some(n) => n,
                 _ => {
+                    start_no = lines.len();
                     lines = &[];
                     break;
                 }
             };
-            if line.lo <= lo {
+            if lo < line.hi {
+                start_no = pos + 1;
                 lines = &lines[pos..];
                 break;
             }
         }
         for (pos, line) in lines.iter().enumerate() {
-            if line.hi >= hi {
+            if hi <= line.hi {
                 lines = &lines[..pos + 1];
                 break;
             }
         }
-        lines.to_vec().into_boxed_slice()
+        Lines {
+            name: self.name.clone(),
+            start_no: start_no as u32,
+            lines: lines.to_vec().into_boxed_slice(),
+        }
     }
 }
 
@@ -107,7 +135,7 @@ impl SourceUnit_ {
         let mut lo_line = lo;
         while up.len() > 0 {
             let len = up.iter().position(|&c| c == b'\n').unwrap();
-            let hi_line = lo + len as u32 + 1;
+            let hi_line = lo_line + len as u32 + 1;
             let mut line_pos = lo;
             let mut mono_pos = 0;
             let mut mono_offsets = vec![];

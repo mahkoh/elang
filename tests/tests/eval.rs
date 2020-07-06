@@ -32,26 +32,22 @@ fn test(dir: DirEntry) -> bool {
 
     let mut diag = Diagnostic::new();
     let lo = diag.add_src(
-        Rc::from(
-            format!("{}", in_path.display())
-                .into_bytes()
-                .into_boxed_slice(),
-        ),
+        format!("{}", in_path.display()).as_bytes(),
         in_bytes.clone(),
-    );
+    ).unwrap();
 
     let mut e = Elang::new();
 
     let res = match e.parse(lo, &in_bytes) {
         Ok(r) => r,
         Err(msg) => {
-            diag.handle(&mut e, &msg, |_| format!(""));
+            eprint!("{}", diag.handle(&mut e, &msg));
             return true;
         }
     };
 
     if let Err(msg) = e.eval(res) {
-        diag.handle(&mut e, &msg, |e| format!("{:?}", e));
+        eprint!("{}", diag.handle(&mut e, &msg));
         return true;
     }
 
@@ -59,7 +55,7 @@ fn test(dir: DirEntry) -> bool {
 
     if let Err(err) = (Test { e: &mut e }.compare(res, &out)) {
         for err in err.0 {
-            diag.handle(&e, &err, |x| format!("{}", x));
+            eprint!("{}", diag.handle(&e, &err));
         }
         return true;
     }

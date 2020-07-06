@@ -1,200 +1,174 @@
 use crate::{
     util::str::Utf8Lossy, Elang, Error, ErrorContext, ErrorType, Span, TokenAlternative,
 };
-use std::{fmt::Write, rc::Rc};
+use std::{fmt::Write, rc::Rc, fmt};
+use crate::diag::code_map::{CodeMap, Lines};
+use std::fmt::{Display, Formatter};
 
 mod code_map;
 
-struct Codemap {
-    files: Vec<Filemap>,
-}
-
-impl Codemap {
-    fn new() -> Codemap {
-        Codemap { files: vec![] }
-    }
-
-    fn add_file(&mut self, name: Rc<[u8]>, src: Rc<[u8]>) -> u32 {
-        let old_pos = match self.files.last() {
-            Some(f) => *f.lines.last().unwrap(),
-            _ => 0,
-        };
-        let mut cur_pos = old_pos;
-        let mut lines = Vec::new();
-        lines.push(cur_pos);
-        {
-            let mut src = &*src;
-            while src.len() > 0 {
-                let pos = src.iter().position(|&c| c == b'\n').unwrap() + 1;
-                cur_pos += pos as u32;
-                src = &src[pos..];
-                lines.push(cur_pos);
-            }
-        }
-        let map = Filemap {
-            file: name,
-            src,
-            lines: lines.into_boxed_slice(),
-        };
-        self.files.push(map);
-        old_pos
-    }
-
-    fn file(&self, span: Span) -> &Filemap {
-        for file in &*self.files {
-            if file.lines[file.lines.len() - 1] > span.lo {
-                return file;
-            }
-        }
-        &self.files[self.files.len() - 1]
-    }
-}
-
-struct Filemap {
-    file: Rc<[u8]>,
-    src: Rc<[u8]>,
-    /// Contains at index `i` the byte that starts line `i+1`.
-    lines: Box<[u32]>,
-}
-
-impl Filemap {
-    fn file(&self) -> &[u8] {
-        &self.file
-    }
-
-    fn lines(&self, span: Span) -> LineIter {
-        let start = match self.lines.binary_search_by(|&l| l.cmp(&span.lo)) {
-            Ok(l) => l,
-            Err(l) => l - 1,
-        };
-        let end = match self.lines.binary_search_by(|&l| l.cmp(&span.hi)) {
-            Ok(0) => 1,
-            Ok(l) => l,
-            Err(l) => l,
-        };
-        LineIter {
-            src: self,
-            start,
-            end,
-            start_idx: span.lo - self.lines[start],
-            end_idx: span.hi - self.lines[end - 1],
-        }
-    }
-}
-
-#[derive(Copy, Clone)]
-pub struct LineIter<'a> {
-    src: &'a Filemap,
-    start: usize,
-    end: usize,
-    start_idx: u32,
-    end_idx: u32,
-}
-
-#[allow(clippy::len_without_is_empty)]
-impl<'a> LineIter<'a> {
-    pub fn len(&self) -> usize {
-        self.end - self.start
-    }
-
-    pub fn start(&self) -> usize {
-        self.start + 1
-    }
-
-    pub fn last(&self) -> usize {
-        self.end
-    }
-
-    pub fn start_idx(&self) -> u32 {
-        self.start_idx
-    }
-
-    pub fn last_idx(&self) -> u32 {
-        self.end_idx - 1
-    }
-}
-
-impl<'a> Iterator for LineIter<'a> {
-    type Item = (u32, &'a [u8]);
-
-    fn next(&mut self) -> Option<(u32, &'a [u8])> {
-        if self.start == self.end {
-            None
-        } else {
-            let base = self.src.lines[0];
-            let lo = self.src.lines[self.start] - base;
-            let hi = self.src.lines[self.start + 1] - base;
-            let line = &self.src.src[lo as usize..hi as usize];
-            self.start += 1;
-            Some((self.start as u32, line))
-        }
-    }
-}
-
 pub struct Diagnostic {
-    codemap: Codemap,
+    code_map: CodeMap,
+}
+
+struct Unprocessed {
+    span: Span,
+    msg: Rc<str>,
+    children: Vec<Unprocessed>,
+}
+
+struct Processed {
+    location: Location,
+    msg: Rc<str>,
+    max_hints_len: u32,
+    d_lines: Vec<DLine>,
+    max_line_num: u32,
+    children: Vec<Processed>,
+}
+
+enum Location {
+    BuiltIn,
+    Invalid,
+    Source {
+        name: Rc<str>,
+        first_line: u32,
+        first_column: u32,
+        last_line: u32,
+        last_column: u32,
+    }
+}
+
+enum DLine {
+    Text {
+        line: u32,
+        content: Rc<str>,
+    },
+    Hint {
+        first_column: u32,
+        last_column: u32,
+        text: Option<Rc<str>>,
+    },
+    HintStart {
+        hint_idx: u32,
+        hint_crosses: Vec<HintCross>,
+        first_column: u32,
+    },
+    HintStop {
+        hint_idx: u32,
+        hint_crosses: Vec<HintCross>,
+        last_column: u32,
+        text: Option<Rc<str>>,
+    },
+}
+
+enum HintCross {
+    Cross,
+    NoCross,
 }
 
 impl Diagnostic {
     pub fn new() -> Self {
         Self {
-            codemap: Codemap::new(),
+            code_map: CodeMap::new(),
         }
     }
 
-    pub fn add_src(&mut self, name: Rc<[u8]>, src: Rc<[u8]>) -> u32 {
-        self.codemap.add_file(name, src)
+    pub fn add_src(&mut self, name: &[u8], src: Rc<[u8]>) -> Option<u32> {
+        self.code_map.add_source(&name, src)
     }
 
-    fn common(&self, span: Span, prefix: &str, f: &str) {
-        macro_rules! w { ($($tt:tt)*) => { eprint!($($tt)*) } }
-        macro_rules! wl { ($($tt:tt)*) => { eprintln!($($tt)*) } }
-
-        if span == Span::built_in() {
-            w!("<built in> ");
-            w!("{}{}", prefix, f);
-            wl!("");
-            return;
+    fn process(&self, unprocessed: &Unprocessed) -> Processed {
+        let children = unprocessed.children.iter().map(|c| self.process(c)).collect();
+        let span = unprocessed.span;
+        if unprocessed.span == Span::built_in() {
+            return Processed {
+                location: Location::BuiltIn,
+                msg: unprocessed.msg.clone(),
+                max_hints_len: 0,
+                d_lines: vec![],
+                max_line_num: 0,
+                children,
+            };
         }
-
-        let file = self.codemap.file(span);
-        let mut lines = file.lines(span);
-        wl!(
-            "{}:{}:{}: {}:{} {}{}",
-            &String::from_utf8_lossy(file.file()),
-            lines.start(),
-            lines.start_idx() + 1,
-            LineIter::last(&lines),
-            lines.last_idx() + 1,
-            prefix,
-            f,
-        );
-        let len = lines.len();
-        for (_, src) in &mut lines {
-            w!("{} {}", ">>>", &String::from_utf8_lossy(src));
-        }
-        if len == 1 {
-            w!("{} ", ">>>");
-            for _ in 0..lines.start_idx() {
-                w!(" ");
+        let Lines { name, start_no, lines } = match self.code_map.get_lines(unprocessed.span) {
+            Some(l) => l,
+            _ => return Processed {
+                location: Location::Invalid,
+                msg: unprocessed.msg.clone(),
+                max_hints_len: 0,
+                d_lines: vec![],
+                max_line_num: 0,
+                children,
             }
-            w!("{}", "^");
-            for _ in lines.start_idx()..lines.last_idx() {
-                w!("~");
+        };
+        let mut max_hints_len = 0;
+        let mut active_hints = 0;
+        let mut first_column = span.lo - lines[0].lo + 1;
+        for &(lo, mono_pos) in lines[0].mono_offsets.iter().rev() {
+            if lo <= span.lo {
+                first_column = mono_pos + span.lo - lo + 1;
             }
-            wl!("");
+        }
+        let location = Location::Source {
+            name,
+            first_line: start_no,
+            first_column: lines[0].mono_offset(span.lo) + 1,
+            last_line: start_no + lines.len() as u32 - 1,
+            last_column: lines.last().unwrap().mono_offset(span.hi),
+        };
+        let mut d_lines = vec!();
+        for (line_off, line) in lines.iter().enumerate() {
+            d_lines.push(DLine::Text {
+                line: start_no + line_off as u32,
+                content: line.content.clone(),
+            });
+            if line.lo <= span.lo && span.lo < line.hi {
+                let first_column = line.mono_offset(span.lo) + 1;
+                if span.hi < line.hi {
+                    let last_column = line.mono_offset(span.hi - 1) + 1;
+                    d_lines.push(DLine::Hint {
+                        first_column,
+                        last_column,
+                        text: None,
+                    });
+                } else {
+                    active_hints += 1;
+                    max_hints_len = max_hints_len.max(active_hints);
+                    d_lines.push(DLine::HintStart {
+                        hint_idx: 0,
+                        hint_crosses: vec![],
+                        first_column
+                    });
+                }
+            } else if line.lo <= span.hi && span.hi < line.hi {
+                let last_column = line.mono_offset(span.hi - 1) + 1;
+                active_hints -= 1;
+                d_lines.push(DLine::HintStop {
+                    hint_idx: 0,
+                    hint_crosses: vec![],
+                    last_column,
+                    text: None,
+                });
+            }
+        }
+        Processed {
+            location,
+            msg: unprocessed.msg.clone(),
+            max_hints_len,
+            d_lines,
+            max_line_num: start_no + lines.len() as u32,
+            children,
         }
     }
-}
 
-impl Diagnostic {
-    pub fn handle<H: FnOnce(&(dyn std::error::Error + 'static)) -> String>(
+    pub fn handle(
         &self,
         e: &Elang,
-        msg: &Error,
-        h: H,
-    ) {
-        let text = match msg.error {
+        error: &Error,
+    ) -> impl Display {
+        let mut children = vec!();
+
+        let text = match error.error {
             ErrorType::UnexpectedEndOfInput => format!("unexpected end of input"),
             ErrorType::UnexpectedToken {
                 expected,
@@ -245,17 +219,14 @@ impl Diagnostic {
             ErrorType::DuplicateIdentifier {
                 previous_declaration,
             } => {
+                children.push(Unprocessed {
+                    span: previous_declaration.span,
+                    msg: "note: previous declaration here".to_string().into_boxed_str().into(),
+                    children: vec!(),
+                });
+
                 let s = e.get_interned(*previous_declaration);
-                let txt =
-                    format!("duplicate identifier `{}`", &String::from_utf8_lossy(&s));
-                self.common(msg.span, "error: ", &txt);
-                self.common(
-                    previous_declaration.span,
-                    "note: ",
-                    "previous declaration here",
-                );
-                self.trace(e, msg);
-                return;
+                format!("duplicate identifier `{}`", &String::from_utf8_lossy(&s))
             }
             ErrorType::UnexpectedExprKind {
                 expected,
@@ -288,15 +259,13 @@ impl Diagnostic {
             }
             ErrorType::DivideByZero => format!("division by 0"),
             ErrorType::MissingArgument { missing_parameter } => {
+                children.push(Unprocessed {
+                    span: missing_parameter.span,
+                    msg: "note: parameter declared here".to_string().into_boxed_str().into(),
+                    children: vec!(),
+                });
                 let s = e.get_interned(*missing_parameter);
-                self.common(
-                    msg.span,
-                    "error: ",
-                    &format!("missing argument `{}`", &String::from_utf8_lossy(&s)),
-                );
-                self.common(missing_parameter.span, "note: ", "parameter declared here");
-                self.trace(e, msg);
-                return;
+                format!("missing argument `{}`", &String::from_utf8_lossy(&s))
             }
             ErrorType::SpanOverflow => format!("span overflow"),
             ErrorType::AssertionFailed { msg } => {
@@ -305,8 +274,7 @@ impl Diagnostic {
             }
             ErrorType::EmptyNumberLiteral => format!("empty number literal"),
             ErrorType::Custom { ref error } => {
-                let custom = &**error;
-                h(custom)
+                format!("{}", error)
             }
             ErrorType::CannotStringifyNonInteger => {
                 format!("cannot stringify numbers that are not integers")
@@ -341,11 +309,15 @@ impl Diagnostic {
                 format!("an error was raised: {}", Utf8Lossy::from_bytes(&msg))
             }
         };
-        self.common(msg.span, "error: ", &text);
-        self.trace(e, msg);
+        self.trace(e, error, &mut children);
+        self.process(&Unprocessed {
+            span: error.span,
+            msg: format!("error: {}", text).into_boxed_str().into(),
+            children
+        })
     }
 
-    fn trace(&self, el: &Elang, msg: &Error) {
+    fn trace(&self, el: &Elang, msg: &Error, dst: &mut Vec<Unprocessed>) {
         for ctx in &msg.context {
             let s = |s| Span::new(s, s + 1);
             let e = |s| el.span(s);
@@ -408,7 +380,123 @@ impl Diagnostic {
                     ),
                 ),
             };
-            self.common(span, "note: ", &txt);
+            dst.push(Unprocessed {
+                span,
+                msg: format!("note: {}", txt).into_boxed_str().into(),
+                children: vec!(),
+            });
         }
+    }
+}
+
+impl Display for Processed {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.format(f, 0)
+    }
+}
+
+impl Processed {
+    fn format_new_hints(f: &mut Formatter<'_>, hints: &Vec<bool>, hint_idx: u32, c: char) -> fmt::Result {
+        for (idx, &h) in hints.iter().enumerate() {
+            let idx = idx as u32;
+            if idx == hint_idx {
+                write!(f, "{}", c)?;
+            } else if idx < hint_idx {
+                match h {
+                    true => write!(f, "│"),
+                    _ => write!(f, " "),
+                }?
+            } else {
+                match h {
+                    true => write!(f, "┼"),
+                    _ => write!(f, "─"),
+                }?
+            }
+        }
+        Ok(())
+    }
+
+    fn format_old_hints(f: &mut Formatter<'_>, hints: &Vec<bool>) -> fmt::Result {
+        for &h in hints {
+            match h {
+                true => write!(f, "│"),
+                _ => write!(f, " "),
+            }?
+        }
+        Ok(())
+    }
+
+    fn format(&self, f: &mut Formatter<'_>, indentation_: u32) -> fmt::Result {
+        let indentation = Repeat(" ", indentation_);
+        write!(f, "{}", indentation);
+        match self.location {
+            Location::BuiltIn => write!(f, "<built-in>"),
+            Location::Invalid => write!(f, "<invalid-span>"),
+            Location::Source {
+                ref name,
+                first_line,
+                first_column,
+                last_line,
+                last_column
+            } => {
+                write!(f, "{}:{}:{}: {}:{}", name, first_line, first_column, last_line, last_column)
+            },
+        }?;
+        writeln!(f, ": {}", self.msg)?;
+        let line_num_width = format!("{}", self.max_line_num).len() as u32;
+        let mut hints: Vec<_> = (0..self.max_hints_len).map(|_| false).collect();
+        for line in &self.d_lines {
+            write!(f, "{}", indentation)?;
+            match line {
+                DLine::Text { line, content } => {
+                    write!(f, "{:>width$} │", line, width = line_num_width as usize)?;
+                    Self::format_old_hints(f, &hints)?;
+                    writeln!(f, " {}", content)?
+                }
+                DLine::Hint { first_column, last_column, text } => {
+                    write!(f, "{} │", Repeat(" ", line_num_width))?;
+                    Self::format_old_hints(f, &hints)?;
+                    write!(f, "{}^{}",
+                           Repeat(" ", *first_column),
+                           Repeat("~", *last_column - *first_column),
+                    )?;
+                    if let Some(ref t) = text {
+                        write!(f, " {}", t)?;
+                    }
+                    writeln!(f)?;
+                },
+                DLine::HintStart { hint_idx, hint_crosses, first_column } => {
+                    write!(f, "{} │", Repeat(" ", line_num_width))?;
+                    Self::format_new_hints(f, &hints, *hint_idx, '┌')?;
+                    hints[*hint_idx as usize] = true;
+                    writeln!(f, "{}┘", Repeat("─", *first_column))?;
+                },
+                DLine::HintStop { hint_idx, hint_crosses, last_column, text } => {
+                    write!(f, "{} │", Repeat(" ", line_num_width))?;
+                    Self::format_new_hints(f, &hints, *hint_idx, '└')?;
+                    hints[*hint_idx as usize] = false;
+                    write!(f, "{}┘", Repeat("─", *last_column))?;
+                    if let Some(ref t) = text {
+                        write!(f, " {}", t)?;
+                    }
+                    writeln!(f);
+                },
+            }
+        }
+        for child in &self.children {
+            child.format(f, 0)?
+        }
+        Ok(())
+    }
+}
+
+struct Repeat(&'static str, u32);
+
+impl Display for Repeat {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        for _ in 0..self.1 {
+            self.0.fmt(f)?;
+        }
+        Ok(())
     }
 }

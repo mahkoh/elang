@@ -1,5 +1,6 @@
 use elang::{Diagnostic, Elang, Error};
 use std::{cell::RefCell, fs::DirEntry, os::unix::ffi::OsStrExt, rc::Rc};
+use std::io::stdout;
 
 #[test]
 fn error() {
@@ -25,7 +26,7 @@ impl ErrorDiag {
             panic!("multiple errors");
         }
         *lo = Some(message.span().lo());
-        self.td.handle(e, &message, |_| format!(""))
+        eprint!("{}", self.td.handle(e, &message));
     }
 }
 
@@ -59,10 +60,7 @@ fn test(dir: DirEntry) -> bool {
     };
     diag.td.add_src(
         path.as_os_str()
-            .as_bytes()
-            .to_vec()
-            .into_boxed_slice()
-            .into(),
+            .as_bytes(),
         in_bytes.clone(),
     );
 
