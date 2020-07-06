@@ -1,9 +1,5 @@
 use crate::util::str::Utf8Lossy;
-use std::{
-    cell::{RefCell},
-    convert::TryInto,
-    rc::Rc,
-};
+use std::{cell::RefCell, convert::TryInto, rc::Rc};
 use unicode_width::UnicodeWidthChar;
 
 pub struct CodeMap {
@@ -52,7 +48,9 @@ impl CodeMap {
         }
         let hi = lo + len;
         self.source_units.push(SourceUnit {
-            name: format!("{}", Utf8Lossy::from_bytes(name)).into_boxed_str().into(),
+            name: format!("{}", Utf8Lossy::from_bytes(name))
+                .into_boxed_str()
+                .into(),
             lo,
             hi,
             unit: RefCell::new(SourceUnit_::Unprocessed(src)),
