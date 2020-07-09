@@ -25,15 +25,19 @@ impl Span {
     ///
     /// # Panics
     ///
-    /// This function panics if `lo >= hi`.
+    /// This function panics if `lo >= hi` or `hi == u32::max_value()`.
     pub fn new(lo: u32, hi: u32) -> Span {
         assert!(lo < hi);
+        assert!(hi < u32::max_value());
         Span { lo, hi }
     }
 
     /// Returns the span that represents a built-in expression
     pub fn built_in() -> Span {
-        Span::new(!0 - 1, !0)
+        Span {
+            lo: !0 - 1,
+            hi: !0,
+        }
     }
 
     /// Returns the start of the span

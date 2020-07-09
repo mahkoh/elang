@@ -1,9 +1,6 @@
-use crate::{
-    types::{span::Span, store::StrId, token::TokenKind, tree::ExprKind},
-    ExprId, Spanned,
-};
+use crate::{types::{span::Span, store::StrId, token::TokenKind, tree::ExprKind}, ExprId, Spanned, Number};
 use num_rational::BigRational;
-use std::{fmt::Debug, mem, rc::Rc};
+use std::{fmt::Debug, rc::Rc};
 
 /// An error
 #[derive(Debug)]
@@ -34,19 +31,9 @@ impl Error {
     }
 
     /// Adds context to an error
-    pub fn add_context(mut self, ctx: ErrorContext) -> Self {
+    pub(crate) fn add_context(mut self, ctx: ErrorContext) -> Self {
         self.context.push(ctx);
         self
-    }
-
-    /// Retrieves the current context of the error
-    pub fn get_context(&self) -> &[ErrorContext] {
-        &self.context
-    }
-
-    /// Replaces the context of the error
-    pub fn set_context(&mut self, context: Vec<ErrorContext>) -> Vec<ErrorContext> {
-        mem::replace(&mut self.context, context)
     }
 }
 
@@ -54,8 +41,6 @@ impl Error {
 #[derive(Copy, Clone, Debug)]
 #[non_exhaustive]
 pub enum ErrorContext {
-    /// The error occurred while parsing a string
-    ParseString { start: u32 },
     /// The error occurred while parsing a unicode escape sequence
     ParseUnicodeEscape { start: u32 },
     /// The error occurred while parsing a test expression
@@ -150,7 +135,7 @@ pub enum ErrorType {
     /// An attempt was made to select a field from a map but the map has not such field
     MissingMapField { field_name: StrId },
     /// An attempt was made to select index into a list but the index was out of bounds
-    MissingListField { index: Rc<BigRational> },
+    MissingListField { index: Rc<Number> },
     /// During evaluation, an expression was encountered that must be evaluated before itself
     InfiniteRecursion { expr_id: ExprId },
     /// During evaluation, an expression was encountered whose kind cannot be evaluated

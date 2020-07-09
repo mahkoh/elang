@@ -1,3 +1,4 @@
+pub mod num;
 pub mod error;
 pub mod op;
 pub mod result;

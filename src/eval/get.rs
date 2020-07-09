@@ -7,11 +7,13 @@ use std::rc::Rc;
 
 use crate::{
     types::{error::ErrorType, result::ResultUtil},
-    Elang, ErrorContext, Spanned,
+    Elang, Spanned,
 };
-use num_rational::BigRational;
 use num_traits::ToPrimitive;
 use std::collections::HashMap;
+use crate::types::error::ErrorContext;
+use crate::types::num::Number;
+use std::convert::TryFrom;
 
 impl Elang {
     pub(crate) fn get_bool_(&mut self, expr: ExprId) -> Result<bool> {
@@ -44,7 +46,7 @@ impl Elang {
         }
     }
 
-    pub(crate) fn get_number_(&mut self, expr: ExprId) -> Result<Rc<BigRational>> {
+    pub(crate) fn get_number_(&mut self, expr: ExprId) -> Result<Rc<Number>> {
         let res = self.resolve_(expr)?;
         let val = res.val.borrow();
         match *val {
@@ -135,11 +137,9 @@ impl Elang {
                 Ok(None)
             }
             (ExprType::List { ref elements }, ExprType::Number { ref val }) => {
-                if val.is_integer() {
-                    if let Some(val) = val.to_integer().to_usize() {
-                        if val < elements.len() {
-                            return Ok(Some(elements[val]));
-                        }
+                if let Ok(val) = usize::try_from(&**val) {
+                    if val < elements.len() {
+                        return Ok(Some(elements[val]));
                     }
                 }
                 Ok(None)

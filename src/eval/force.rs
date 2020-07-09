@@ -138,7 +138,7 @@ impl Elang {
             ExprType::Div { numer, denom, int } => {
                 let numer = num(self, numer)?;
                 let denom_ = num(self, denom)?;
-                if *denom_ == BigRational::zero() {
+                if *denom_ == 0 {
                     return self.eerror(denom, ErrorType::DivideByZero).ctx(ctx);
                 }
                 let res = &*numer / &*denom_;
@@ -151,7 +151,7 @@ impl Elang {
             ExprType::Mod { numer, denom } => {
                 let numer = num(self, numer)?;
                 let denom_ = num(self, denom)?;
-                if *denom_ == BigRational::zero() {
+                if *denom_ == 0 {
                     return self.eerror(denom, ErrorType::DivideByZero).ctx(ctx);
                 }
                 &*numer % &*denom_
@@ -639,7 +639,7 @@ impl Elang {
                             stringify_expr: expr.id,
                         });
                 }
-                let s = format!("{}", v);
+                let s = format!("{}", BigRational::from((**v).clone()));
                 let content = self.store.add_str(s);
                 *val = ExprType::String { content };
             }

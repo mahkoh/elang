@@ -1,12 +1,19 @@
 use crate::{
-    util::str::Utf8Lossy, Elang, Error, ErrorContext, ErrorType, Span, TokenAlternative,
+    diag::code_map::{CodeMap, Lines},
+    util::str::Utf8Lossy,
+    Elang, Error, ErrorType, Span, TokenAlternative,
 };
-use std::{fmt::Write, rc::Rc, fmt};
-use crate::diag::code_map::{CodeMap, Lines};
-use std::fmt::{Display, Formatter};
+use std::{
+    fmt,
+    fmt::{Display, Formatter, Write},
+    rc::Rc,
+};
+use crate::types::error::ErrorContext;
+use num_rational::BigRational;
 
 mod code_map;
 
+/// A util for generating diagnostic messages
 pub struct Diagnostic {
     code_map: CodeMap,
 }
@@ -35,7 +42,7 @@ enum Location {
         first_column: u32,
         last_line: u32,
         last_column: u32,
-    }
+    },
 }
 
 enum DLine {
@@ -50,35 +57,42 @@ enum DLine {
     },
     HintStart {
         hint_idx: u32,
-        hint_crosses: Vec<HintCross>,
         first_column: u32,
     },
     HintStop {
         hint_idx: u32,
-        hint_crosses: Vec<HintCross>,
         last_column: u32,
         text: Option<Rc<str>>,
     },
 }
 
-enum HintCross {
-    Cross,
-    NoCross,
-}
-
 impl Diagnostic {
+    /// Creates a new diagnostic object
     pub fn new() -> Self {
         Self {
             code_map: CodeMap::new(),
         }
     }
 
-    pub fn add_src(&mut self, name: &[u8], src: Rc<[u8]>) -> Option<u32> {
+    /// Adds a source unit
+    ///
+    /// `name` is the name that will be displayed next to diagnostic messages referring
+    /// to this source unit.
+    ///
+    /// If adding this source unit would cause the total amount of source code in this
+    /// diagnostic object to be larger than `u32::max_value() - 1`, `None` is returned.
+    ///
+    /// Otherwise the base for spans referring to this source unit is returned.
+    pub fn add_src(&mut self, name: &[u8], src: &[u8]) -> Option<u32> {
         self.code_map.add_source(&name, src)
     }
 
     fn process(&self, unprocessed: &Unprocessed) -> Processed {
-        let children = unprocessed.children.iter().map(|c| self.process(c)).collect();
+        let children = unprocessed
+            .children
+            .iter()
+            .map(|c| self.process(c))
+            .collect();
         let span = unprocessed.span;
         if unprocessed.span == Span::built_in() {
             return Processed {
@@ -90,25 +104,25 @@ impl Diagnostic {
                 children,
             };
         }
-        let Lines { name, start_no, lines } = match self.code_map.get_lines(unprocessed.span) {
+        let Lines {
+            name,
+            start_no,
+            lines,
+        } = match self.code_map.get_lines(unprocessed.span) {
             Some(l) => l,
-            _ => return Processed {
-                location: Location::Invalid,
-                msg: unprocessed.msg.clone(),
-                max_hints_len: 0,
-                d_lines: vec![],
-                max_line_num: 0,
-                children,
+            _ => {
+                return Processed {
+                    location: Location::Invalid,
+                    msg: unprocessed.msg.clone(),
+                    max_hints_len: 0,
+                    d_lines: vec![],
+                    max_line_num: 0,
+                    children,
+                }
             }
         };
         let mut max_hints_len = 0;
         let mut active_hints = 0;
-        let mut first_column = span.lo - lines[0].lo + 1;
-        for &(lo, mono_pos) in lines[0].mono_offsets.iter().rev() {
-            if lo <= span.lo {
-                first_column = mono_pos + span.lo - lo + 1;
-            }
-        }
         let location = Location::Source {
             name,
             first_line: start_no,
@@ -116,7 +130,7 @@ impl Diagnostic {
             last_line: start_no + lines.len() as u32 - 1,
             last_column: lines.last().unwrap().mono_offset(span.hi),
         };
-        let mut d_lines = vec!();
+        let mut d_lines = vec![];
         for (line_off, line) in lines.iter().enumerate() {
             d_lines.push(DLine::Text {
                 line: start_no + line_off as u32,
@@ -124,7 +138,7 @@ impl Diagnostic {
             });
             if line.lo <= span.lo && span.lo < line.hi {
                 let first_column = line.mono_offset(span.lo) + 1;
-                if span.hi < line.hi {
+                if span.hi <= line.hi {
                     let last_column = line.mono_offset(span.hi - 1) + 1;
                     d_lines.push(DLine::Hint {
                         first_column,
@@ -136,8 +150,7 @@ impl Diagnostic {
                     max_hints_len = max_hints_len.max(active_hints);
                     d_lines.push(DLine::HintStart {
                         hint_idx: 0,
-                        hint_crosses: vec![],
-                        first_column
+                        first_column,
                     });
                 }
             } else if line.lo <= span.hi && span.hi < line.hi {
@@ -145,7 +158,6 @@ impl Diagnostic {
                 active_hints -= 1;
                 d_lines.push(DLine::HintStop {
                     hint_idx: 0,
-                    hint_crosses: vec![],
                     last_column,
                     text: None,
                 });
@@ -161,12 +173,9 @@ impl Diagnostic {
         }
     }
 
-    pub fn handle(
-        &self,
-        e: &Elang,
-        error: &Error,
-    ) -> impl Display {
-        let mut children = vec!();
+    /// Transforms an error into an object that can be displayed
+    pub fn display(&self, e: &Elang, error: &Error) -> impl Display + 'static {
+        let mut children = vec![];
 
         let text = match error.error {
             ErrorType::UnexpectedEndOfInput => format!("unexpected end of input"),
@@ -221,8 +230,11 @@ impl Diagnostic {
             } => {
                 children.push(Unprocessed {
                     span: previous_declaration.span,
-                    msg: "note: previous declaration here".to_string().into_boxed_str().into(),
-                    children: vec!(),
+                    msg: "note: previous declaration here"
+                        .to_string()
+                        .into_boxed_str()
+                        .into(),
+                    children: vec![],
                 });
 
                 let s = e.get_interned(*previous_declaration);
@@ -251,7 +263,7 @@ impl Diagnostic {
                 format!("missing map field `{}`", &String::from_utf8_lossy(&s))
             }
             ErrorType::MissingListField { ref index } => {
-                format!("missing list field {}", index)
+                format!("missing list field {}", BigRational::from((**index).clone()))
             }
             ErrorType::InfiniteRecursion { .. } => format!("infinite recursion"),
             ErrorType::CannotEvaluateExpr { kind } => {
@@ -261,8 +273,11 @@ impl Diagnostic {
             ErrorType::MissingArgument { missing_parameter } => {
                 children.push(Unprocessed {
                     span: missing_parameter.span,
-                    msg: "note: parameter declared here".to_string().into_boxed_str().into(),
-                    children: vec!(),
+                    msg: "note: parameter declared here"
+                        .to_string()
+                        .into_boxed_str()
+                        .into(),
+                    children: vec![],
                 });
                 let s = e.get_interned(*missing_parameter);
                 format!("missing argument `{}`", &String::from_utf8_lossy(&s))
@@ -273,9 +288,7 @@ impl Diagnostic {
                 format!("assertion failed: {}", Utf8Lossy::from_bytes(&msg))
             }
             ErrorType::EmptyNumberLiteral => format!("empty number literal"),
-            ErrorType::Custom { ref error } => {
-                format!("{}", error)
-            }
+            ErrorType::Custom { ref error } => format!("{}", error),
             ErrorType::CannotStringifyNonInteger => {
                 format!("cannot stringify numbers that are not integers")
             }
@@ -313,7 +326,7 @@ impl Diagnostic {
         self.process(&Unprocessed {
             span: error.span,
             msg: format!("error: {}", text).into_boxed_str().into(),
-            children
+            children,
         })
     }
 
@@ -324,7 +337,6 @@ impl Diagnostic {
             let p = |s| format!("while parsing {} starting here", s);
             let q = |s| format!("while evaluating this {}", s);
             let (span, txt) = match *ctx {
-                ErrorContext::ParseString { start } => (s(start), p("string")),
                 ErrorContext::ParseUnicodeEscape { start } => {
                     (s(start), p("unicode escape"))
                 }
@@ -383,7 +395,7 @@ impl Diagnostic {
             dst.push(Unprocessed {
                 span,
                 msg: format!("note: {}", txt).into_boxed_str().into(),
-                children: vec!(),
+                children: vec![],
             });
         }
     }
@@ -396,7 +408,12 @@ impl Display for Processed {
 }
 
 impl Processed {
-    fn format_new_hints(f: &mut Formatter<'_>, hints: &Vec<bool>, hint_idx: u32, c: char) -> fmt::Result {
+    fn format_new_hints(
+        f: &mut Formatter<'_>,
+        hints: &Vec<bool>,
+        hint_idx: u32,
+        c: char,
+    ) -> fmt::Result {
         for (idx, &h) in hints.iter().enumerate() {
             let idx = idx as u32;
             if idx == hint_idx {
@@ -428,7 +445,7 @@ impl Processed {
 
     fn format(&self, f: &mut Formatter<'_>, indentation_: u32) -> fmt::Result {
         let indentation = Repeat(" ", indentation_);
-        write!(f, "{}", indentation);
+        write!(f, "{}", indentation)?;
         match self.location {
             Location::BuiltIn => write!(f, "<built-in>"),
             Location::Invalid => write!(f, "<invalid-span>"),
@@ -437,10 +454,12 @@ impl Processed {
                 first_line,
                 first_column,
                 last_line,
-                last_column
-            } => {
-                write!(f, "{}:{}:{}: {}:{}", name, first_line, first_column, last_line, last_column)
-            },
+                last_column,
+            } => write!(
+                f,
+                "{}:{}:{}: {}:{}",
+                name, first_line, first_column, last_line, last_column
+            ),
         }?;
         writeln!(f, ": {}", self.msg)?;
         let line_num_width = format!("{}", self.max_line_num).len() as u32;
@@ -453,25 +472,38 @@ impl Processed {
                     Self::format_old_hints(f, &hints)?;
                     writeln!(f, " {}", content)?
                 }
-                DLine::Hint { first_column, last_column, text } => {
+                DLine::Hint {
+                    first_column,
+                    last_column,
+                    text,
+                } => {
                     write!(f, "{} │", Repeat(" ", line_num_width))?;
                     Self::format_old_hints(f, &hints)?;
-                    write!(f, "{}^{}",
-                           Repeat(" ", *first_column),
-                           Repeat("~", *last_column - *first_column),
+                    write!(
+                        f,
+                        "{}^{}",
+                        Repeat(" ", *first_column),
+                        Repeat("~", *last_column - *first_column),
                     )?;
                     if let Some(ref t) = text {
                         write!(f, " {}", t)?;
                     }
                     writeln!(f)?;
-                },
-                DLine::HintStart { hint_idx, hint_crosses, first_column } => {
+                }
+                DLine::HintStart {
+                    hint_idx,
+                    first_column,
+                } => {
                     write!(f, "{} │", Repeat(" ", line_num_width))?;
                     Self::format_new_hints(f, &hints, *hint_idx, '┌')?;
                     hints[*hint_idx as usize] = true;
                     writeln!(f, "{}┘", Repeat("─", *first_column))?;
-                },
-                DLine::HintStop { hint_idx, hint_crosses, last_column, text } => {
+                }
+                DLine::HintStop {
+                    hint_idx,
+                    last_column,
+                    text,
+                } => {
                     write!(f, "{} │", Repeat(" ", line_num_width))?;
                     Self::format_new_hints(f, &hints, *hint_idx, '└')?;
                     hints[*hint_idx as usize] = false;
@@ -479,8 +511,8 @@ impl Processed {
                     if let Some(ref t) = text {
                         write!(f, " {}", t)?;
                     }
-                    writeln!(f);
-                },
+                    writeln!(f)?;
+                }
             }
         }
         for child in &self.children {

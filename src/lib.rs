@@ -1,3 +1,41 @@
+//!
+//! ```
+//! # use std::rc::Rc;
+//! # use std::collections::HashMap;
+//! # use std::str::FromStr;
+//! # use num_bigint::BigInt;
+//! # use elang::{Diagnostic, ExprType, Elang, Value, Span};
+//! let src = b"{ n, m }: n + m";
+//!
+//! let mut diag = Diagnostic::new();
+//! let lo = diag.add_src(b"input.exl", src).unwrap();
+//!
+//! let mut el = Elang::new();
+//! let func = match el.parse(lo, src) {
+//!     Ok(e) => e,
+//!     Err(e) => panic!("{}", diag.display(&el, &e)),
+//! };
+//!
+//! let mut input = HashMap::new();
+//! input.insert(
+//!     b"n".to_vec().into_boxed_slice(),
+//!     Value::Number(2.into())
+//! );
+//! input.insert(
+//!     b"m".to_vec().into_boxed_slice(),
+//!     Value::Number(3.into())
+//! );
+//!
+//! let arg = el.add_value(Value::Map(input));
+//!
+//! let apl = el.add_expr(Span::built_in(), ExprType::Apl { func, arg });
+//!
+//! match el.get_number(apl) {
+//!     Ok(i) => assert_eq!(&*i, &5),
+//!     Err(e) => panic!("{}", diag.display(&el, &e)),
+//! }
+//! ```
+
 #![allow(clippy::len_zero)]
 #![allow(clippy::new_without_default)]
 
@@ -5,16 +43,16 @@ use crate::types::store::Store;
 pub use crate::{
     diag::Diagnostic,
     types::{
-        error::{Error, ErrorContext, ErrorType, TokenAlternative},
+        error::{Error, ErrorType, TokenAlternative},
         result::Result,
         span::{Span, Spanned},
         store::{Intern, StrId},
         token::TokenKind,
         tree::{Expr, ExprId, ExprKind, ExprType, FnParam, FnType, NativeFn},
         value::Value,
+        num::Number,
     },
 };
-use num_rational::BigRational;
 use std::{borrow::Cow, collections::HashMap, convert::TryInto, rc::Rc};
 
 mod diag;
@@ -175,7 +213,7 @@ impl Elang {
     }
 
     /// Evaluates an expression, asserts that it is a number, and returns it
-    pub fn get_number(&mut self, expr_id: ExprId) -> Result<Rc<BigRational>> {
+    pub fn get_number(&mut self, expr_id: ExprId) -> Result<Rc<Number>> {
         self.get_number_(expr_id)
     }
 

@@ -6,7 +6,6 @@ use crate::{
     },
     Elang,
 };
-use num_rational::BigRational;
 use std::{
     cell::RefCell,
     collections::HashMap,
@@ -15,6 +14,7 @@ use std::{
     hash::Hash,
     rc::Rc,
 };
+use crate::types::num::Number;
 
 /// An expression with an associated span.
 pub type SExpr = Spanned<ExprId>;
@@ -126,7 +126,7 @@ pub enum ExprType {
     /// `null`
     Null,
     /// A number
-    Number { val: Rc<BigRational> },
+    Number { val: Rc<Number> },
     /// `lhs || rhs`
     Or { lhs: ExprId, rhs: ExprId },
     /// `lower \\ upper`

@@ -1,6 +1,5 @@
 use elang::{Diagnostic, Elang, Error};
 use std::{cell::RefCell, fs::DirEntry, os::unix::ffi::OsStrExt, rc::Rc};
-use std::io::stdout;
 
 #[test]
 fn error() {
@@ -26,7 +25,7 @@ impl ErrorDiag {
             panic!("multiple errors");
         }
         *lo = Some(message.span().lo());
-        eprint!("{}", self.td.handle(e, &message));
+        eprint!("{}", self.td.display(e, &message));
     }
 }
 
@@ -50,23 +49,17 @@ fn test(dir: DirEntry) -> bool {
         bytes.push(b'\n');
     }
 
-    let in_bytes: Rc<[u8]> = bytes.into_boxed_slice().into();
-
     println!("testing {}", path.display());
 
     let mut diag = ErrorDiag {
         td: Diagnostic::new(),
         lo: Rc::new(RefCell::new(None)),
     };
-    diag.td.add_src(
-        path.as_os_str()
-            .as_bytes(),
-        in_bytes.clone(),
-    );
+    diag.td.add_src(path.as_os_str().as_bytes(), &bytes);
 
     let mut e = Elang::new();
 
-    match e.parse(0, &in_bytes) {
+    match e.parse(0, &bytes) {
         Ok(res) => {
             if let Err(msg) = e.eval(res) {
                 diag.handle(&mut e, msg);

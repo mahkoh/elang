@@ -1,7 +1,6 @@
-use crate::util::str::Utf8Lossy;
+use crate::{util::str::Utf8Lossy, Span};
 use std::{cell::RefCell, convert::TryInto, rc::Rc};
 use unicode_width::UnicodeWidthChar;
-use crate::Span;
 
 pub struct CodeMap {
     source_units: Vec<SourceUnit>,
@@ -49,16 +48,18 @@ impl Line {
 impl CodeMap {
     pub fn new() -> Self {
         Self {
-            source_units: vec!(),
+            source_units: vec![],
         }
     }
 
-    pub fn add_source(&mut self, name: &[u8], mut src: Rc<[u8]>) -> Option<u32> {
-        if src.last().copied() != Some(b'\n') {
+    pub fn add_source(&mut self, name: &[u8], src: &[u8]) -> Option<u32> {
+        let src: Rc<[u8]> = if src.last().copied() != Some(b'\n') {
             let mut copy = src.to_vec();
             copy.push(b'\n');
-            src = copy.into_boxed_slice().into();
-        }
+            copy.into_boxed_slice().into()
+        } else {
+            src.to_vec().into_boxed_slice().into()
+        };
         let lo = self.source_units.last().map(|u| u.hi).unwrap_or(0);
         let len: u32 = match src.len().try_into() {
             Ok(l) => l,

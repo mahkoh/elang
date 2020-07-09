@@ -15,6 +15,7 @@ use std::{
     collections::{hash_map::Entry, HashMap},
     rc::Rc,
 };
+use crate::Number;
 
 pub fn parse(store: &mut Store, tokens: TokenStream) -> Result<ExprId> {
     Parser::new(store, tokens).parse()
@@ -317,11 +318,11 @@ impl<'a> Parser<'a> {
         Ok(expr.unwrap())
     }
 
-    fn parse_number(&mut self, val: StrId, base: u16, shift: u16) -> Rc<BigRational> {
+    fn parse_number(&mut self, val: StrId, base: u16, shift: u16) -> Rc<Number> {
         let val = self.store.get_str(val);
         let numer = BigInt::parse_bytes(&val, base as u32).unwrap();
         let denom = BigInt::from(base).pow(shift as u32);
-        Rc::new(BigRational::new(numer, denom))
+        Rc::new(BigRational::new(numer, denom).into())
     }
 
     fn parse_selector(&mut self) -> Result<SExpr> {

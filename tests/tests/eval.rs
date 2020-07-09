@@ -1,4 +1,4 @@
-use elang::{Diagnostic, Elang, Error, ErrorType, ExprId};
+use elang::{Diagnostic, Elang, Error, ErrorType, ExprId, Number};
 use num_rational::BigRational;
 use std::{
     fmt,
@@ -25,29 +25,27 @@ fn test(dir: DirEntry) -> bool {
     let out_path = path.join("out.json");
     let out: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(&out_path).unwrap()).unwrap();
-    let in_bytes: Rc<[u8]> =
-        Rc::from(std::fs::read(&in_path).unwrap().into_boxed_slice());
+    let in_bytes = std::fs::read(&in_path).unwrap();
 
     println!("testing {}", in_path.display());
 
     let mut diag = Diagnostic::new();
-    let lo = diag.add_src(
-        format!("{}", in_path.display()).as_bytes(),
-        in_bytes.clone(),
-    ).unwrap();
+    let lo = diag
+        .add_src(format!("{}", in_path.display()).as_bytes(), &in_bytes)
+        .unwrap();
 
     let mut e = Elang::new();
 
     let res = match e.parse(lo, &in_bytes) {
         Ok(r) => r,
         Err(msg) => {
-            eprint!("{}", diag.handle(&mut e, &msg));
+            eprint!("{}", diag.display(&mut e, &msg));
             return true;
         }
     };
 
     if let Err(msg) = e.eval(res) {
-        eprint!("{}", diag.handle(&mut e, &msg));
+        eprint!("{}", diag.display(&mut e, &msg));
         return true;
     }
 
@@ -55,7 +53,7 @@ fn test(dir: DirEntry) -> bool {
 
     if let Err(err) = (Test { e: &mut e }.compare(res, &out)) {
         for err in err.0 {
-            eprint!("{}", diag.handle(&e, &err));
+            eprint!("{}", diag.display(&e, &err));
         }
         return true;
     }
@@ -77,14 +75,14 @@ impl<'a> Test<'a> {
             serde_json::Value::Number(i2) => {
                 let i1 = self.e.get_number(actual)?;
                 let i2 = if i2.is_i64() {
-                    BigRational::from((i2.as_i64().unwrap().into(), 1.into()))
+                    i2.as_i64().unwrap().into()
                 } else if i2.is_u64() {
-                    BigRational::from((i2.as_u64().unwrap().into(), 1.into()))
+                    i2.as_u64().unwrap().into()
                 } else {
-                    BigRational::from_float(i2.as_f64().unwrap()).unwrap()
+                    Number::from_f64(i2.as_f64().unwrap()).unwrap()
                 };
                 if &*i1 != &i2 {
-                    return self.error(actual, format!("expected {}, got {}", i2, i1));
+                    return self.error(actual, format!("expected {}, got {}", i2.as_big_rational(), i1.as_big_rational()));
                 }
             }
             &serde_json::Value::Bool(b2) => {

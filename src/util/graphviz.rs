@@ -67,7 +67,7 @@ fn print_tree_<W: Write>(
 
     match *val {
         ExprType::Inherit => write!(w, "{} [shape=\"box\", label=\"Inherit\"];", id),
-        ExprType::Number { ref val } => write!(w, "{} [label=\"{}\"];", id, val),
+        ExprType::Number { ref val } => write!(w, "{} [label=\"{}\"];", id, &val.0),
         ExprType::Ident { name } => {
             write!(w, "{} [label=\"", id)?;
             w.write_all(&store.get_str(name))?;
